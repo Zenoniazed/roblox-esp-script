@@ -125,7 +125,7 @@ local function createESP(obj, color)
     text.TextColor3 = color
     text.Font = Enum.Font.GothamBold
     text.BackgroundTransparency = 1
-    text.TextScaled = true
+    text.TextSize = 10
     text.TextStrokeTransparency = 0.5
 end
 
