@@ -145,14 +145,12 @@ game:GetService("RunService").Stepped:Connect(function()
     end
 end)
 -- 🟢 Biến điều khiển Aimbot
--- 🟢 Biến điều khiển Aimbot
 local aimbotEnabled = false
-local currentTarget = nil
-local player = game.Players.LocalPlayer
-local camera = game.Workspace.CurrentCamera
+local mouse = game.Players.LocalPlayer:GetMouse()
 
--- 🟢 Hàm tìm kẻ địch gần nhất (Chỉ Mob/Zombie, không nhắm vào người chơi)
+-- 🟢 Hàm tìm kẻ địch gần nhất (Bỏ qua người chơi + mob đã chết)
 local function getNearestEnemy()
+    local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
@@ -165,8 +163,8 @@ local function getNearestEnemy()
             -- 🟢 Kiểm tra nếu obj KHÔNG PHẢI là người chơi (bỏ qua Player)
             local enemyHumanoid = obj:FindFirstChild("Humanoid")
             local enemyHead = obj:FindFirstChild("Head") -- 🔹 Kiểm tra Head thay vì HumanoidRootPart
-
-            -- 🟢 Kiểm tra nếu mob còn sống (`Health > 0`)
+            
+            -- 🟢 Bỏ qua nếu Humanoid không tồn tại hoặc HP <= 0 (mob đã chết)
             if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
                 local distance = (hrp.Position - enemyHead.Position).Magnitude
                 if distance < minDistance and distance <= 250 then -- 🟢 Giới hạn phạm vi Aimbot
@@ -180,24 +178,21 @@ local function getNearestEnemy()
     return nearestEnemy
 end
 
--- 🟢 Kích hoạt Aimbot (Tối ưu)
+
+
+
+-- 🟢 Kích hoạt Aimbot (Chỉ nhắm vào Mob/Zombie, không nhắm vào Player)
 game:GetService("RunService").RenderStepped:Connect(function()
     if aimbotEnabled then
-        local target = getNearestEnemy() -- 🔹 Luôn cập nhật mục tiêu
+        local target = getNearestEnemy()
         if target then
-            currentTarget = target -- 🔹 Gán mục tiêu mới
+            local camera = game.Workspace.CurrentCamera
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 0.5, 0)) -- 🔹 Nhắm cao hơn một chút
         end
-
-        if currentTarget and currentTarget.Parent and currentTarget:IsA("BasePart") then
-            -- 🟢 Kiểm tra xem mục tiêu có hợp lệ không trước khi cập nhật camera
-            pcall(function()
-                camera.CFrame = CFrame.new(camera.CFrame.Position, currentTarget.Position + Vector3.new(0, 0.5, 0)) -- 🔹 Nhắm vào đầu
-            end)
-        end
-    else
-        currentTarget = nil -- 🔴 Tắt Aimbot thì reset target
     end
 end)
+
+
 
 -- 🟢 Nút bật/tắt Aimbot
 local function toggleAimbot()
