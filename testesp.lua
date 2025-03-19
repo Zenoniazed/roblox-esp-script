@@ -106,7 +106,8 @@ local espTargets = {
      ["RifleOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
      ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
      ["RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
-     ["Runner"] = { color = Color3.fromRGB(0, 0, 255), category = "Zombies" }
+     ["Runner"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+    ["Walker"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" }
 }
 
 -- 🟢 Hàm tạo ESP (Text hiển thị trên đầu)
