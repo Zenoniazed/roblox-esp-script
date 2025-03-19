@@ -184,7 +184,7 @@ game:GetService("RunService").RenderStepped:Connect(function()
         local target = getNearestEnemy()
         if target then
             local camera = game.Workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 0.8, 0)) -- 🔹 Nhắm cao hơn một chút
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 0.5, 0)) -- 🔹 Nhắm cao hơn một chút
         end
     end
 end)
