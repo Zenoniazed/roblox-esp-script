@@ -8,7 +8,8 @@ local options = {
     { name = "Vật phẩm", enabled = false },
     { name = "Enemies bán được", enabled = false },
     { name = "Mob hiếm", enabled = false },
-    { name = "Zombies", enabled = false }
+    { name = "Zombies", enabled = false },
+    { name = "Vũ khí", enabled = false },
 }
 
 ScreenGui.Parent = game.CoreGui
@@ -99,6 +100,7 @@ end)
 -- 🟢 Danh sách màu ESP theo danh mục
 local espTargets = {
     ["GoldBar"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
+    ["Coal"] = { color = Color3.fromRGB(235, 121, 72), category = "Vật phẩm" },
      ["Bond"] = { color = Color3.fromRGB(246, 14, 76), category = "Vật phẩm" },
      ["Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob hiếm" },
      ["Wolf"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob hiếm" },
@@ -107,7 +109,20 @@ local espTargets = {
      ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
      ["RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
      ["Runner"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
-    ["Walker"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" }
+     ["Walker"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+     ["Vampire Knife"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["Revolver"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["Rifle"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["Bolt Action Rifle"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["Shotgun"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["Cavalry Sword"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["Crucifix"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["Molotov"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["Holy Water"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+     ["RifleAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
+     ["ShotgunAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
+     ["RevolverAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
+     
 }
 
 -- 🟢 Hàm tạo ESP (Text hiển thị trên đầu)
