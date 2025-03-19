@@ -120,7 +120,7 @@ local espTargets = {
      ["Molotov"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
      ["Holy Water"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
      ["RifleAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
-     ["ShotgunAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
+     ["ShotgunShells"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
      ["RevolverAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
      
 }
