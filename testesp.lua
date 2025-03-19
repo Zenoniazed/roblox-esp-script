@@ -163,7 +163,7 @@ local function getNearestEnemy()
             local enemyHRP = obj:FindFirstChild("HumanoidRootPart")
             if enemyHRP and obj ~= character then
                 local distance = (hrp.Position - enemyHRP.Position).Magnitude
-                if distance < minDistance and distance <= 500 then -- Giới hạn phạm vi Aimbot
+                if distance < minDistance and distance <= 100 then -- Giới hạn phạm vi Aimbot
                     nearestEnemy = enemyHRP
                     minDistance = distance
                 end
