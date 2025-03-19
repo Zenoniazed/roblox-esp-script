@@ -2,8 +2,6 @@
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local ESPButton = Instance.new("TextButton")
-local DistanceLabel = Instance.new("TextLabel")
-local DistanceSlider = Instance.new("TextBox")
 local OptionsFrame = Instance.new("Frame")
 
 local options = {
@@ -17,7 +15,7 @@ ScreenGui.Parent = game.CoreGui
 
 -- 🟢 Khung chính
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 200, 0, 120)
+MainFrame.Size = UDim2.new(0, 200, 0, 80)
 MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BorderSizePixel = 2
@@ -60,7 +58,7 @@ for i, option in ipairs(options) do
         option.enabled = not option.enabled
         optionButton.BackgroundColor3 = option.enabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
     end)
-end
+end)
 
 -- 🟢 Hỗ trợ kéo thả GUI (MainFrame + OptionsFrame)
 local UserInputService = game:GetService("UserInputService")
@@ -100,18 +98,14 @@ end)
 
 -- 🟢 Danh sách màu ESP theo danh mục
 local espTargets = {
-    ["GoldBar"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
-    ["Bond"] = { color = Color3.fromRGB(246, 14, 76), category = "Vật phẩm" },
-    ["Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob hiếm" },
-    ["Wolf"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob hiếm" },
-    ["Unicorn"] = { color = Color3.fromRGB(205, 0, 255), category = "Mob hiếm" },
-    ["RifleOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
-    ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
-    ["RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
-    ["Runner"] = { color = Color3.fromRGB(0, 0, 255), category = "Zombies" },
+    ["GoldBar"] = { color = Color3.fromRGB(255, 215, 0), category = "Vật phẩm" },
+    ["Horse"] = { color = Color3.fromRGB(255, 165, 0), category = "Mob hiếm" },
+    ["Unicorn"] = { color = Color3.fromRGB(0, 255, 255), category = "Mob hiếm" },
+    ["RifleOutlaw"] = { color = Color3.fromRGB(255, 0, 0), category = "Enemies bán được" },
+    ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 0, 255), category = "Enemies bán được" },
+    ["Runner"] = { color = Color3.fromRGB(255, 0, 0), category = "Zombies" },
     ["Walker"] = { color = Color3.fromRGB(0, 0, 255), category = "Zombies" }
 }
-
 
 -- 🟢 Hàm tạo ESP (Text hiển thị trên đầu)
 local function createESP(obj, color)
@@ -123,7 +117,7 @@ local function createESP(obj, color)
     esp.StudsOffset = Vector3.new(0, 3, 0) -- Đẩy ESP lên trên đầu vật phẩm
     esp.Adornee = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
     esp.AlwaysOnTop = true
-    esp.MaxDistance = 2000
+    esp.MaxDistance = 1000 -- 🟢 Mặc định ESP hiển thị trong 1000 đơn vị
 
     local text = Instance.new("TextLabel", esp)
     text.Size = UDim2.new(1, 0, 1, 0)
@@ -135,10 +129,7 @@ local function createESP(obj, color)
     text.TextStrokeTransparency = 0.5 -- Giúp chữ rõ hơn
 end
 
-
-
-
--- 🟢 Cập nhật ESP theo khoảng cách
+-- 🟢 Cập nhật ESP theo khoảng cách (Mặc định 1000)
 game:GetService("RunService").RenderStepped:Connect(function()
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
@@ -161,7 +152,7 @@ game:GetService("RunService").RenderStepped:Connect(function()
             local itemPosition = obj:IsA("Model") and obj.PrimaryPart and obj.PrimaryPart.Position or obj.Position
             local distance = (itemPosition - hrp.Position).Magnitude
 
-            if enabled and distance <= tonumber(DistanceSlider.Text) then
+            if enabled and distance <= 1000 then -- 🟢 Giới hạn mặc định 1000
                 if not obj:FindFirstChild("ESP_Tag") then
                     createESP(obj, espTargets[objName].color)
                 end
@@ -173,4 +164,3 @@ game:GetService("RunService").RenderStepped:Connect(function()
         end
     end
 end)
-
