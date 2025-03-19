@@ -164,7 +164,7 @@ local function getNearestEnemy()
             local enemyHead = obj:FindFirstChild("Head") -- 🔹 Kiểm tra Head thay vì HumanoidRootPart
             if enemyHead and obj ~= character then
                 local distance = (hrp.Position - enemyHead.Position).Magnitude
-                if distance < minDistance and distance <= 500 then -- 🟢 Giới hạn phạm vi Aimbot
+                if distance < minDistance and distance <= 250 then -- 🟢 Giới hạn phạm vi Aimbot
                     nearestEnemy = enemyHead -- 🔹 Nhắm vào Head thay vì RootPart
                     minDistance = distance
                 end
@@ -182,7 +182,7 @@ game:GetService("RunService").RenderStepped:Connect(function()
         local target = getNearestEnemy()
         if target then
             local camera = game.Workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 0.5, 0)) -- 🔹 Nhắm cao hơn một chút
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 0.7, 0)) -- 🔹 Nhắm cao hơn một chút
         end
     end
 end)
