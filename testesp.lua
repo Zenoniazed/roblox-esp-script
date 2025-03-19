@@ -148,7 +148,7 @@ end)
 local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
 
--- 🟢 Hàm tìm kẻ địch gần nhất (Chỉ Mob/Zombie, không nhắm vào người chơi)
+-- 🟢 Hàm tìm kẻ địch gần nhất (Bỏ qua người chơi + mob đã chết)
 local function getNearestEnemy()
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
@@ -161,8 +161,11 @@ local function getNearestEnemy()
     for _, obj in pairs(game.Workspace:GetDescendants()) do
         if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
             -- 🟢 Kiểm tra nếu obj KHÔNG PHẢI là người chơi (bỏ qua Player)
+            local enemyHumanoid = obj:FindFirstChild("Humanoid")
             local enemyHead = obj:FindFirstChild("Head") -- 🔹 Kiểm tra Head thay vì HumanoidRootPart
-            if enemyHead then
+            
+            -- 🟢 Bỏ qua nếu Humanoid không tồn tại hoặc HP <= 0 (mob đã chết)
+            if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
                 local distance = (hrp.Position - enemyHead.Position).Magnitude
                 if distance < minDistance and distance <= 250 then -- 🟢 Giới hạn phạm vi Aimbot
                     nearestEnemy = enemyHead -- 🔹 Nhắm vào Head thay vì RootPart
