@@ -98,13 +98,15 @@ end)
 
 -- 🟢 Danh sách màu ESP theo danh mục
 local espTargets = {
-    ["GoldBar"] = { color = Color3.fromRGB(255, 215, 0), category = "Vật phẩm" },
-    ["Horse"] = { color = Color3.fromRGB(255, 165, 0), category = "Mob hiếm" },
-    ["Unicorn"] = { color = Color3.fromRGB(0, 255, 255), category = "Mob hiếm" },
-    ["RifleOutlaw"] = { color = Color3.fromRGB(255, 0, 0), category = "Enemies bán được" },
-    ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 0, 255), category = "Enemies bán được" },
-    ["Runner"] = { color = Color3.fromRGB(255, 0, 0), category = "Zombies" },
-    ["Walker"] = { color = Color3.fromRGB(0, 0, 255), category = "Zombies" }
+    ["GoldBar"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
+     ["Bond"] = { color = Color3.fromRGB(246, 14, 76), category = "Vật phẩm" },
+     ["Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob hiếm" },
+     ["Wolf"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob hiếm" },
+     ["Unicorn"] = { color = Color3.fromRGB(205, 0, 255), category = "Mob hiếm" },
+     ["RifleOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
+     ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
+     ["RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
+     ["Runner"] = { color = Color3.fromRGB(0, 0, 255), category = "Zombies" }
 }
 
 -- 🟢 Hàm tạo ESP (Text hiển thị trên đầu)
