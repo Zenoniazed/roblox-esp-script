@@ -148,8 +148,7 @@ end)
 local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
 
--- 🟢 Hàm tìm kẻ địch gần nhất
--- 🟢 Hàm tìm kẻ địch gần nhất (Nhắm vào đầu)
+-- 🟢 Hàm tìm kẻ địch gần nhất (Chỉ Mob/Zombie, không nhắm vào người chơi)
 local function getNearestEnemy()
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
@@ -160,9 +159,10 @@ local function getNearestEnemy()
     local minDistance = math.huge
 
     for _, obj in pairs(game.Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
+        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
+            -- 🟢 Kiểm tra nếu obj KHÔNG PHẢI là người chơi (bỏ qua Player)
             local enemyHead = obj:FindFirstChild("Head") -- 🔹 Kiểm tra Head thay vì HumanoidRootPart
-            if enemyHead and obj ~= character then
+            if enemyHead then
                 local distance = (hrp.Position - enemyHead.Position).Magnitude
                 if distance < minDistance and distance <= 250 then -- 🟢 Giới hạn phạm vi Aimbot
                     nearestEnemy = enemyHead -- 🔹 Nhắm vào Head thay vì RootPart
@@ -176,16 +176,19 @@ local function getNearestEnemy()
 end
 
 
--- 🟢 Kích hoạt Aimbot (Nhắm vào đầu)
+
+
+-- 🟢 Kích hoạt Aimbot (Chỉ nhắm vào Mob/Zombie, không nhắm vào Player)
 game:GetService("RunService").RenderStepped:Connect(function()
     if aimbotEnabled then
         local target = getNearestEnemy()
         if target then
             local camera = game.Workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 0.7, 0)) -- 🔹 Nhắm cao hơn một chút
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 0.8, 0)) -- 🔹 Nhắm cao hơn một chút
         end
     end
 end)
+
 
 
 -- 🟢 Nút bật/tắt Aimbot
