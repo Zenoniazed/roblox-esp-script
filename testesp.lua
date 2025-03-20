@@ -274,11 +274,12 @@ local function getNearestEnemy()
     local nearestEnemy = nil
     local minDistance = math.huge
 
-    for _, enemyHead in pairs(enemiesList) do
-        if enemyHead and enemyHead.Parent then
-            local distance = (hrp.Position - enemyHead.Position).Magnitude
-            if distance < minDistance and distance <= maxAimbotDistance and isWithinFOV(enemyHead) then
-                nearestEnemy = enemyHead
+    -- 🟢 Duyệt danh sách kẻ địch đã cache thay vì toàn bộ Workspace
+    for _, enemy in pairs(enemiesList) do
+        if enemy.head and enemy.head.Parent and enemy.humanoid.Health > 0 then -- 🟢 Kiểm tra mob còn sống
+            local distance = (hrp.Position - enemy.head.Position).Magnitude
+            if distance < minDistance and distance <= maxAimbotDistance then
+                nearestEnemy = enemy.head
                 minDistance = distance
             end
         end
