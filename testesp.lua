@@ -287,21 +287,26 @@ end
 -- 🟢 Kích hoạt Aimbot (Fix lỗi nhắm vào mob chết + chỉ aim trong FOV)
 game:GetService("RunService").RenderStepped:Connect(function()
     if aimbotEnabled then
-        -- 🔹 Chỉ tìm lại mục tiêu nếu mất hoặc mục tiêu đã chết
-        if not currentTarget or not currentTarget.Parent or currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health <= 0 then
-            currentTarget = getNearestEnemy()
+        local newTarget = getNearestEnemy() -- 🔥 Kiểm tra mục tiêu gần hơn mỗi frame
+
+        -- 🔹 Nếu có kẻ địch gần hơn, đổi target ngay
+        if newTarget and newTarget ~= currentTarget then
+            currentTarget = newTarget
         end
 
         -- 🔹 Chỉ cập nhật `CFrame` nếu có mục tiêu hợp lệ
-        if currentTarget then
+        if currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health > 0 then
             local camera = game.Workspace.CurrentCamera
             local aimPosition = currentTarget.Position + Vector3.new(0, 0.5, 0)
             camera.CFrame = CFrame.new(camera.CFrame.Position, aimPosition)
+        else
+            currentTarget = nil -- 🔴 Nếu mục tiêu chết hoặc mất, reset target
         end
     else
         currentTarget = nil -- 🔴 Reset khi tắt Aimbot
     end
 end)
+
 
 -- 🟢 Nút bật/tắt Aimbot
 local function toggleAimbot()
