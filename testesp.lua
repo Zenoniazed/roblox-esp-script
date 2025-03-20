@@ -190,9 +190,82 @@ end)
 -- 🟢 Biến điều khiển Aimbot
 local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
+local enemiesList = {}
+local currentTarget = nil
+local maxAimbotDistance = 500
+local aimbotFOVRadius = 50 -- 🔥 Bán kính FOV hình tròn
 
--- 🟢 Hàm tìm kẻ địch gần nhất (Chỉ Mob/Zombie, không nhắm vào người chơi)
+-- 🟢 Tạo GUI hiển thị FOV
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local FOVCircle = Instance.new("Frame")
+
+FOVCircle.Parent = ScreenGui
+FOVCircle.Size = UDim2.new(0, aimbotFOVRadius * 2, 0, aimbotFOVRadius * 2)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.BorderSizePixel = 0
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5) -- 🟢 Căn giữa chính xác
+FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0) -- 🟢 Luôn đặt ở tâm màn hình
+FOVCircle.Visible = false
+
+local UICorner = Instance.new("UICorner", FOVCircle)
+UICorner.CornerRadius = UDim.new(1, 0)
+
+local UIStroke = Instance.new("UIStroke", FOVCircle)
+UIStroke.Thickness = 2
+UIStroke.Color = Color3.fromRGB(0, 255, 0)
+UIStroke.Transparency = 0.5
+
+-- 🟢 Cập nhật vị trí FOV
+game:GetService("RunService").RenderStepped:Connect(function()
+    local camera = game.Workspace.CurrentCamera
+    if camera then
+        local viewportSize = camera.ViewportSize
+        FOVCircle.Position = UDim2.new(0.5, 0, 0.46, 0) -- 🔥 Fix tuyệt đối về tâm màn hình
+    end
+end)
+
+-- 🟢 Kiểm tra mục tiêu có nằm trong FOV không
+local function isWithinFOV(target)
+    local camera = game.Workspace.CurrentCamera
+    local targetScreenPos, onScreen = camera:WorldToViewportPoint(target.Position)
+
+    if onScreen then
+        local centerX, centerY = camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
+        local distanceFromCenter = math.sqrt((targetScreenPos.X - centerX) ^ 2 + (targetScreenPos.Y - centerY) ^ 2)
+
+        return distanceFromCenter <= aimbotFOVRadius
+    end
+
+    return false
+end
+
+-- 🟢 Cập nhật danh sách enemy mỗi giây
+task.spawn(function()
+    while true do
+        if not aimbotEnabled then
+            task.wait(1)
+        else
+            enemiesList = {}
+            for _, obj in pairs(game.Workspace:GetDescendants()) do
+                if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
+                    local enemyHumanoid = obj:FindFirstChild("Humanoid")
+                    local enemyHead = obj:FindFirstChild("Head")
+
+                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
+                        table.insert(enemiesList, enemyHead)
+                    end
+                end
+            end
+            print("🔍 Cập nhật danh sách kẻ địch:", #enemiesList)
+            task.wait(1)
+        end
+    end
+end)
+
+-- 🟢 Tìm kẻ địch gần nhất trong FOV
 local function getNearestEnemy()
+    if not aimbotEnabled then return nil end
+
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -201,16 +274,12 @@ local function getNearestEnemy()
     local nearestEnemy = nil
     local minDistance = math.huge
 
-    for _, obj in pairs(game.Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
-            -- 🟢 Kiểm tra nếu obj KHÔNG PHẢI là người chơi (bỏ qua Player)
-            local enemyHead = obj:FindFirstChild("Head") -- 🔹 Kiểm tra Head thay vì HumanoidRootPart
-            if enemyHead then
-                local distance = (hrp.Position - enemyHead.Position).Magnitude
-                if distance < minDistance and distance <= 250 then -- 🟢 Giới hạn phạm vi Aimbot
-                    nearestEnemy = enemyHead -- 🔹 Nhắm vào Head thay vì RootPart
-                    minDistance = distance
-                end
+    for _, enemyHead in pairs(enemiesList) do
+        if enemyHead and enemyHead.Parent then
+            local distance = (hrp.Position - enemyHead.Position).Magnitude
+            if distance < minDistance and distance <= maxAimbotDistance and isWithinFOV(enemyHead) then
+                nearestEnemy = enemyHead
+                minDistance = distance
             end
         end
     end
@@ -218,30 +287,36 @@ local function getNearestEnemy()
     return nearestEnemy
 end
 
-
-
-
--- 🟢 Kích hoạt Aimbot (Chỉ nhắm vào Mob/Zombie, không nhắm vào Player)
+-- 🟢 Kích hoạt Aimbot (Chỉ aim vào kẻ địch trong FOV)
 game:GetService("RunService").RenderStepped:Connect(function()
     if aimbotEnabled then
-        local target = getNearestEnemy()
-        if target then
-            local camera = game.Workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 0.5, 0)) -- 🔹 Nhắm cao hơn một chút
+        if not currentTarget or currentTarget.Parent == nil then
+            currentTarget = getNearestEnemy()
         end
+
+        if currentTarget then
+            local camera = game.Workspace.CurrentCamera
+            camera.CFrame = CFrame.new(camera.CFrame.Position, currentTarget.Position + Vector3.new(0, 0.5, 0))
+        end
+    else
+        currentTarget = nil
     end
 end)
-
-
 
 -- 🟢 Nút bật/tắt Aimbot
 local function toggleAimbot()
     aimbotEnabled = not aimbotEnabled
+    FOVCircle.Visible = aimbotEnabled -- 🔥 Cập nhật hiển thị FOV
     AimbotButton.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
     print(aimbotEnabled and "🟢 Aimbot ĐÃ BẬT" or "🔴 Aimbot ĐÃ TẮT")
 end
 
 AimbotButton.MouseButton1Click:Connect(toggleAimbot)
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.T then
+        toggleAimbot()
+    end
+end)
 
 -- 🟢 Danh sách màu ESP theo danh mục
 local espTargets = {
