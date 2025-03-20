@@ -238,23 +238,25 @@ local function isWithinFOV(target)
     return false
 end
 
--- 🟢 Cập nhật danh sách enemy mỗi 0.5 giây
+-- 🟢 Cập nhật danh sách enemy mỗi 0.5 giây (Chỉ khi bật Aimbot)
 task.spawn(function()
     while true do
-        enemiesList = {} -- 🟢 Xóa danh sách cũ
-        for _, obj in pairs(game.Workspace:GetDescendants()) do
-            if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
-                local enemyHumanoid = obj:FindFirstChildWhichIsA("Humanoid")
-                local enemyHead = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") -- 🔹 Fix nếu không có Head
+        if aimbotEnabled then -- 🔥 Chỉ chạy nếu Aimbot bật
+            enemiesList = {} -- 🟢 Xóa danh sách cũ
+            for _, obj in pairs(game.Workspace:GetDescendants()) do
+                if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
+                    local enemyHumanoid = obj:FindFirstChildWhichIsA("Humanoid")
+                    local enemyHead = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") -- 🔹 Fix nếu không có Head
 
-                -- 🟢 Chỉ thêm vào danh sách nếu còn sống
-                if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
-                    table.insert(enemiesList, {head = enemyHead, humanoid = enemyHumanoid, model = obj})
+                    -- 🟢 Chỉ thêm vào danh sách nếu còn sống
+                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
+                        table.insert(enemiesList, {head = enemyHead, humanoid = enemyHumanoid, model = obj})
+                    end
                 end
             end
+            -- print("🔍 Cập nhật danh sách kẻ địch:", #enemiesList) -- Debug số lượng enemy tìm thấy
         end
-        print("🔍 Cập nhật danh sách kẻ địch:", #enemiesList) -- Debug số lượng enemy tìm thấy
-        task.wait(0.5) -- 🔹 Chỉ cập nhật mỗi 0.5 giây (giảm lag)
+        task.wait(0.5) -- 🔹 Chỉ cập nhật mỗi 0.5 giây
     end
 end)
 
