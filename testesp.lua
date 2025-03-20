@@ -133,7 +133,7 @@ local function toggleFullbright()
         game:GetService("Lighting").Brightness = 1.5
         game:GetService("Lighting").ClockTime = 14.5
         game:GetService("Lighting").FogEnd = 100000
-        game:GetService("Lighting").GlobalShadows = true
+        game:GetService("Lighting").GlobalShadows = false
         print("🟢 Fullbright ĐÃ BẬT")
     else
         game:GetService("Lighting").Brightness = 1.5
