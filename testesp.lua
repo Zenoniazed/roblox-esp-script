@@ -190,10 +190,10 @@ end)
 -- 🟢 Biến điều khiển Aimbot
 local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
-local enemiesList = {}
+local enemiesList = {} -- 🟢 Danh sách kẻ địch được cập nhật định kỳ
 local currentTarget = nil
-local maxAimbotDistance = 500
-local aimbotFOVRadius = 50 -- 🔥 Bán kính FOV hình tròn
+local maxAimbotDistance = 250 -- 🟢 Giới hạn khoảng cách Aimbot
+local aimbotFOVRadius = 50 -- 🟢 Kích thước vòng FOV
 
 -- 🟢 Tạo GUI hiển thị FOV
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
@@ -215,12 +215,11 @@ UIStroke.Thickness = 2
 UIStroke.Color = Color3.fromRGB(0, 255, 0)
 UIStroke.Transparency = 0.5
 
--- 🟢 Cập nhật vị trí FOV
+-- 🟢 Cập nhật vị trí FOV theo tâm màn hình
 game:GetService("RunService").RenderStepped:Connect(function()
     local camera = game.Workspace.CurrentCamera
     if camera then
-        local viewportSize = camera.ViewportSize
-        FOVCircle.Position = UDim2.new(0.5, 0, 0.46, 0) -- 🔥 Fix tuyệt đối về tâm màn hình
+        FOVCircle.Position = UDim2.new(0.5, 0, 0.46, 0) -- 🔥 Luôn ở tâm
     end
 end)
 
@@ -239,33 +238,28 @@ local function isWithinFOV(target)
     return false
 end
 
--- 🟢 Cập nhật danh sách enemy mỗi giây
+-- 🟢 Cập nhật danh sách enemy mỗi 0.5 giây
 task.spawn(function()
     while true do
-        if not aimbotEnabled then
-            task.wait(1)
-        else
-            enemiesList = {}
-            for _, obj in pairs(game.Workspace:GetDescendants()) do
-                if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
-                    local enemyHumanoid = obj:FindFirstChild("Humanoid")
-                    local enemyHead = obj:FindFirstChild("Head")
+        enemiesList = {} -- 🟢 Xóa danh sách cũ
+        for _, obj in pairs(game.Workspace:GetDescendants()) do
+            if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
+                local enemyHumanoid = obj:FindFirstChildWhichIsA("Humanoid")
+                local enemyHead = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") -- 🔹 Fix nếu không có Head
 
-                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
-                        table.insert(enemiesList, enemyHead)
-                    end
+                -- 🟢 Chỉ thêm vào danh sách nếu còn sống
+                if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
+                    table.insert(enemiesList, {head = enemyHead, humanoid = enemyHumanoid, model = obj})
                 end
             end
-            print("🔍 Cập nhật danh sách kẻ địch:", #enemiesList)
-            task.wait(0.5)
         end
+        print("🔍 Cập nhật danh sách kẻ địch:", #enemiesList) -- Debug số lượng enemy tìm thấy
+        task.wait(0.5) -- 🔹 Chỉ cập nhật mỗi 0.5 giây (giảm lag)
     end
 end)
 
 -- 🟢 Tìm kẻ địch gần nhất trong FOV
 local function getNearestEnemy()
-    if not aimbotEnabled then return nil end
-
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -278,7 +272,7 @@ local function getNearestEnemy()
     for _, enemy in pairs(enemiesList) do
         if enemy.head and enemy.head.Parent and enemy.humanoid.Health > 0 then -- 🟢 Kiểm tra mob còn sống
             local distance = (hrp.Position - enemy.head.Position).Magnitude
-            if distance < minDistance and distance <= maxAimbotDistance then
+            if distance < minDistance and distance <= maxAimbotDistance and isWithinFOV(enemy.head) then -- 🔹 Chỉ nhắm vào mục tiêu trong FOV
                 nearestEnemy = enemy.head
                 minDistance = distance
             end
@@ -288,26 +282,29 @@ local function getNearestEnemy()
     return nearestEnemy
 end
 
--- 🟢 Kích hoạt Aimbot (Chỉ aim vào kẻ địch trong FOV)
+-- 🟢 Kích hoạt Aimbot (Fix lỗi nhắm vào mob chết + chỉ aim trong FOV)
 game:GetService("RunService").RenderStepped:Connect(function()
     if aimbotEnabled then
-         if not currentTarget or not currentTarget.Parent or currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health <= 0 then
+        -- 🔹 Chỉ tìm lại mục tiêu nếu mất hoặc mục tiêu đã chết
+        if not currentTarget or not currentTarget.Parent or currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health <= 0 then
             currentTarget = getNearestEnemy()
         end
 
+        -- 🔹 Chỉ cập nhật `CFrame` nếu có mục tiêu hợp lệ
         if currentTarget then
             local camera = game.Workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.Position, currentTarget.Position + Vector3.new(0, 0.5, 0))
+            local aimPosition = currentTarget.Position + Vector3.new(0, 0.5, 0)
+            camera.CFrame = CFrame.new(camera.CFrame.Position, aimPosition)
         end
     else
-        currentTarget = nil
+        currentTarget = nil -- 🔴 Reset khi tắt Aimbot
     end
 end)
 
 -- 🟢 Nút bật/tắt Aimbot
 local function toggleAimbot()
     aimbotEnabled = not aimbotEnabled
-    FOVCircle.Visible = aimbotEnabled -- 🔥 Cập nhật hiển thị FOV
+    FOVCircle.Visible = aimbotEnabled -- 🔥 Hiện/ẩn FOV khi bật/tắt Aimbot
     AimbotButton.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
     print(aimbotEnabled and "🟢 Aimbot ĐÃ BẬT" or "🔴 Aimbot ĐÃ TẮT")
 end
