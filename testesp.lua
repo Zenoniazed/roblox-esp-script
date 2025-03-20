@@ -4,6 +4,7 @@ local MainFrame = Instance.new("Frame")
 local ESPButton = Instance.new("TextButton")
 local NoclipButton = Instance.new("TextButton") -- 🟢 Nút Noclip
 local AimbotButton = Instance.new("TextButton")
+local FullbrightButton = Instance.new("TextButton") -- 🟢 Nút Fullbright
 local OptionsFrame = Instance.new("Frame")
 
 local options = {
@@ -18,7 +19,7 @@ ScreenGui.Parent = game.CoreGui
 
 -- 🟢 Khung chính (Nhỏ gọn hơn)
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 250, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
+MainFrame.Size = UDim2.new(0, 310, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
 MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BorderSizePixel = 2
@@ -44,6 +45,13 @@ AimbotButton.Size = UDim2.new(0, 60, 0, 40)
 AimbotButton.Position = UDim2.new(0, 135, 0, 5)            -- Đặt dưới Noclip
 AimbotButton.Text = "Aimbot"
 AimbotButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Mặc định là tắt
+
+-- 🟢 Nút Fullbright
+FullbrightButton.Parent = MainFrame
+FullbrightButton.Size = UDim2.new(0, 70, 0, 40)
+FullbrightButton.Position = UDim2.new(0, 200, 0, 5)
+FullbrightButton.Text = "Bright"
+FullbrightButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 
 
 -- 🟢 Khung danh sách chọn
@@ -113,6 +121,36 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- 🟢 Biến điều khiển Fullbright
+local fullbrightEnabled = false
+
+-- 🟢 Hàm bật/tắt Fullbright
+local function toggleFullbright()
+    fullbrightEnabled = not fullbrightEnabled
+    FullbrightButton.BackgroundColor3 = fullbrightEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+
+    if fullbrightEnabled then
+        game:GetService("Lighting").Brightness = 1.5
+        game:GetService("Lighting").ClockTime = 14.5
+        game:GetService("Lighting").FogEnd = 100000
+        game:GetService("Lighting").GlobalShadows = true
+        print("🟢 Fullbright ĐÃ BẬT")
+    else
+        game:GetService("Lighting").Brightness = 1.5
+        game:GetService("Lighting").ClockTime = 14.5
+        game:GetService("Lighting").FogEnd = 100000
+        game:GetService("Lighting").GlobalShadows = true
+        print("🔴 Fullbright ĐÃ TẮT")
+    end
+end
+
+FullbrightButton.MouseButton1Click:Connect(toggleFullbright)
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.K then
+        toggleFullbright()
+    end
+end)
+
 -- 🟢 Biến điều khiển Noclip
 local noclipEnabled = false
 
@@ -130,6 +168,11 @@ end
 
 -- 🟢 Gán sự kiện cho nút Noclip
 NoclipButton.MouseButton1Click:Connect(toggleNoclip)
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.N then
+        toggleNoclip()
+    end
+end)
 
 -- 🟢 Cập nhật trạng thái Noclip
 game:GetService("RunService").Stepped:Connect(function()
@@ -148,7 +191,7 @@ end)
 local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
 
--- 🟢 Hàm tìm kẻ địch gần nhất (Bỏ qua người chơi + mob đã chết)
+-- 🟢 Hàm tìm kẻ địch gần nhất (Chỉ Mob/Zombie, không nhắm vào người chơi)
 local function getNearestEnemy()
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
@@ -161,11 +204,8 @@ local function getNearestEnemy()
     for _, obj in pairs(game.Workspace:GetDescendants()) do
         if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
             -- 🟢 Kiểm tra nếu obj KHÔNG PHẢI là người chơi (bỏ qua Player)
-            local enemyHumanoid = obj:FindFirstChild("Humanoid")
             local enemyHead = obj:FindFirstChild("Head") -- 🔹 Kiểm tra Head thay vì HumanoidRootPart
-            
-            -- 🟢 Bỏ qua nếu Humanoid không tồn tại hoặc HP <= 0 (mob đã chết)
-            if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
+            if enemyHead then
                 local distance = (hrp.Position - enemyHead.Position).Magnitude
                 if distance < minDistance and distance <= 250 then -- 🟢 Giới hạn phạm vi Aimbot
                     nearestEnemy = enemyHead -- 🔹 Nhắm vào Head thay vì RootPart
