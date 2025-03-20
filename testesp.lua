@@ -49,7 +49,7 @@ AimbotButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Mặc định là t
 -- 🟢 Nút Fullbright
 FullbrightButton.Parent = MainFrame
 FullbrightButton.Size = UDim2.new(0, 70, 0, 40)
-FullbrightButton.Position = UDim2.new(0, 200, 0, 5)
+FullbrightButton.Position = UDim2.new(0, 195, 0, 5)
 FullbrightButton.Text = "Bright"
 FullbrightButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 
