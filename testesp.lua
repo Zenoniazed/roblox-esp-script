@@ -257,7 +257,7 @@ task.spawn(function()
                 end
             end
             print("🔍 Cập nhật danh sách kẻ địch:", #enemiesList)
-            task.wait(1)
+            task.wait(0.5)
         end
     end
 end)
@@ -291,7 +291,7 @@ end
 -- 🟢 Kích hoạt Aimbot (Chỉ aim vào kẻ địch trong FOV)
 game:GetService("RunService").RenderStepped:Connect(function()
     if aimbotEnabled then
-        if not currentTarget or currentTarget.Parent == nil then
+         if not currentTarget or not currentTarget.Parent or currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health <= 0 then
             currentTarget = getNearestEnemy()
         end
 
