@@ -10,7 +10,7 @@ local OptionsFrame = Instance.new("Frame")
 local options = {
     { name = "Vật phẩm", enabled = false },
     { name = "Enemies bán được", enabled = false },
-    { name = "Mob hiếm", enabled = false },
+    { name = "Mob", enabled = false },
     { name = "Zombies", enabled = false },
     { name = "Vũ khí", enabled = false },
 }
@@ -328,9 +328,11 @@ local espTargets = {
     ["GoldBar"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
     ["Coal"] = { color = Color3.fromRGB(235, 121, 72), category = "Vật phẩm" },
     ["Bond"] = { color = Color3.fromRGB(246, 14, 76), category = "Vật phẩm" },
-    ["Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob hiếm" },
-    ["Wolf"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob hiếm" },
-    ["Unicorn"] = { color = Color3.fromRGB(205, 0, 255), category = "Mob hiếm" },
+    ["Bandage"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
+    ["Snake Oil"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
+    ["Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
+    ["Wolf"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
+    ["Unicorn"] = { color = Color3.fromRGB(205, 0, 255), category = "Mob" },
     ["RifleOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
     ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
     ["RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
