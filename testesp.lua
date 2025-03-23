@@ -209,7 +209,7 @@ local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
 local enemiesList = {}        -- 🟢 Danh sách kẻ địch được cập nhật định kỳ
 local currentTarget = nil
-local maxAimbotDistance = 400 -- 🟢 Giới hạn khoảng cách Aimbot
+local maxAimbotDistance = 500 -- 🟢 Giới hạn khoảng cách Aimbot
 local aimbotFOVRadius = 25    -- 🟢 Kích thước vòng FOV
 
 -- 🟢 Tạo GUI hiển thị FOV
