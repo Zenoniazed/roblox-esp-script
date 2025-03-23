@@ -209,7 +209,7 @@ local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
 local enemiesList = {}        -- 🟢 Danh sách kẻ địch được cập nhật định kỳ
 local currentTarget = nil
-local maxAimbotDistance = 350 -- 🟢 Giới hạn khoảng cách Aimbot
+local maxAimbotDistance = 400 -- 🟢 Giới hạn khoảng cách Aimbot
 local aimbotFOVRadius = 25    -- 🟢 Kích thước vòng FOV
 
 -- 🟢 Tạo GUI hiển thị FOV
@@ -522,12 +522,8 @@ task.spawn(function()
                         local virtualInput = game:GetService("VirtualInputManager")
                         virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
                         task.wait(0.1)
-                        virtualInput:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-                        task.wait(0.1)
                         virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                        task.wait(0.1)
-                        virtualInput:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-                        task.wait(0.1)
+                        task.wait(0.1))
                     end
                 end
             end
