@@ -5,7 +5,6 @@ local ESPButton = Instance.new("TextButton")
 local NoclipButton = Instance.new("TextButton")     -- 🟢 Nút Noclip
 local AimbotButton = Instance.new("TextButton")
 local FullbrightButton = Instance.new("TextButton") -- 🟢 Nút Fullbright
-local AutoLootButton = Instance.new("TextButton")
 local OptionsFrame = Instance.new("Frame")
 
 local options = {
@@ -20,7 +19,7 @@ ScreenGui.Parent = game.CoreGui
 
 -- 🟢 Khung chính (Nhỏ gọn hơn)
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 370, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
+MainFrame.Size = UDim2.new(0, 310, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
 MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BorderSizePixel = 2
@@ -53,12 +52,7 @@ FullbrightButton.Size = UDim2.new(0, 60, 0, 40)
 FullbrightButton.Position = UDim2.new(0, 195, 0, 5)
 FullbrightButton.Text = "Bright"
 FullbrightButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
--- 🟢 Nút AutoLoot
-AutoLootButton.Parent = MainFrame
-AutoLootButton.Size = UDim2.new(0, 60, 0, 40)
-AutoLootButton.Position = UDim2.new(0, 255, 0, 5)
-AutoLootButton.Text = "AutoLoot"
-AutoLootButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+
 
 
 -- 🟢 Khung danh sách chọn
@@ -464,70 +458,3 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
---Auto Loot
-local UserInputService = game:GetService("UserInputService")
-
-local AUTOLOOT_RANGE = 20
-local AUTOLOOT_INTERVAL = 0.3
-local autolootEnabled = false -- 🔴 Mặc định tắt, bấm B để bật
-
-local function AutoLoot()
-    autolootEnabled = not autolootEnabled
-    AutoLootButton.BackgroundColor3 = autolootEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-
-    if autolootEnabled then
-        print("🧲 Auto-Loot ĐÃ BẬT")
-    else
-        print("❌ Auto-Loot ĐÃ TẮT")
-    end
-end
-AutoLootButton.MouseButton1Click:Connect(AutoLoot)
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.L then
-        AutoLoot()
-    end
-end)
-task.spawn(function()
-    while true do
-        if autolootEnabled then
-            local player = game.Players.LocalPlayer
-            local character = player.Character or player.CharacterAdded:Wait()
-            local hrp = character:FindFirstChild("HumanoidRootPart")
-            local camera = workspace.CurrentCamera
-            if hrp and camera then
-                local closestObj = nil
-                local closestDist = AUTOLOOT_RANGE
-
-                for _, obj in ipairs(CollectionService:GetTagged("ESP_Target")) do
-                    local info = espTargets[obj.Name]
-                    if info and info.category == "Vật phẩm" then
-                        local pos = getObjectPosition(obj)
-                        if pos then
-                            local dist = (pos - hrp.Position).Magnitude
-                            if dist < closestDist then
-                                closestDist = dist
-                                closestObj = obj
-                            end
-                        end
-                    end
-                end
-
-                if closestObj then
-                    local lootPos = getObjectPosition(closestObj)
-                    if lootPos then
-                        -- Xoay camera
-                        camera.CFrame = CFrame.new(camera.CFrame.Position, lootPos)
-
-                        -- Giả lập nhấn E,F
-                        local virtualInput = game:GetService("VirtualInputManager")
-                        virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                        task.wait(0.1)
-                        virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                        task.wait(0.1))
-                    end
-                end
-            end
-        end
-        task.wait(AUTOLOOT_INTERVAL)
-    end
-end)
