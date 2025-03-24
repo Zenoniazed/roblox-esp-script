@@ -124,41 +124,59 @@ end)
 
 -- 🟢 Biến điều khiển Fullbright
 local fullbrightEnabled = false
+local runService = game:GetService("RunService")
+local lighting = game:GetService("Lighting")
+
+-- 🟢 Hàm áp dụng cấu hình Fullbright
+local function applyFullbright()
+    lighting.Brightness = 1.5
+    lighting.ClockTime = 14.5
+    lighting.FogStart = 0
+    lighting.FogEnd = 100000
+    lighting.FogColor = Color3.new(0.752941, 0.752941, 0.752941)
+    lighting.Ambient = Color3.new(0.611765, 0.611765, 0.611765)
+    lighting.OutdoorAmbient = Color3.new(0.611765, 0.611765, 0.611765)
+    lighting.GlobalShadows = false
+    lighting.EnvironmentDiffuseScale = 1
+    lighting.EnvironmentSpecularScale = 1
+    lighting.ColorShift_Top = Color3.new(0, 0, 0)
+    lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
+    lighting.ExposureCompensation = 0
+end
+
+-- 🟢 Hàm tắt Fullbright
+local function disableFullbright()
+    lighting.GlobalShadows = true
+    -- Tùy chọn: khôi phục các giá trị gốc nếu muốn
+end
 
 -- 🟢 Hàm bật/tắt Fullbright
 local function toggleFullbright()
     fullbrightEnabled = not fullbrightEnabled
     FullbrightButton.BackgroundColor3 = fullbrightEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-    local Lighting = game:GetService("Lighting")
+
     if fullbrightEnabled then
-        Lighting.Brightness = 1.5
-        Lighting.ClockTime = 14.5
-        Lighting.FogStart = 0
-        Lighting.FogEnd = 100000
-        Lighting.FogColor = Color3.new(0.752941, 0.752941, 0.752941)
-        Lighting.Ambient = Color3.new(0.611765, 0.611765, 0.611765)
-        Lighting.OutdoorAmbient = Color3.new(0.611765, 0.611765, 0.611765)
-        Lighting.GlobalShadows = false
-        Lighting.EnvironmentDiffuseScale = 1
-        Lighting.EnvironmentSpecularScale = 1
-        Lighting.ColorShift_Top = Color3.new(0, 0, 0)
-        Lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
-        Lighting.ExposureCompensation = 0
+        applyFullbright()
         print("🟢 Fullbright ĐÃ BẬT")
     else
-        game:GetService("Lighting").Brightness = 1.5
-        game:GetService("Lighting").ClockTime = 14.5
-        game:GetService("Lighting").FogEnd = 100000
-        game:GetService("Lighting").GlobalShadows = true
+        disableFullbright()
         print("🔴 Fullbright ĐÃ TẮT")
     end
 end
 
+-- 🟢 Kết nối nút GUI và phím tắt
 FullbrightButton.MouseButton1Click:Connect(toggleFullbright)
 
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.K then
         toggleFullbright()
+    end
+end)
+
+-- 🟢 Vòng lặp ép lại Lighting khi đang bật
+runService.RenderStepped:Connect(function()
+    if fullbrightEnabled then
+        applyFullbright()
     end
 end)
 
