@@ -221,8 +221,8 @@ local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
 local enemiesList = {}
 local currentTarget = nil
-local maxAimbotDistance = 500
-local aimbotFOVRadius = 25
+local maxAimbotDistance = 750
+local aimbotFOVRadius = 75
 
 -- 🟢 GUI FOV
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
