@@ -362,14 +362,23 @@ local espTargets = {
     ["Bond"] = { color = Color3.fromRGB(246, 14, 76), category = "Vật phẩm" },
     ["Bandage"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
     ["Snake Oil"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
+    
     ["Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
     ["Wolf"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
     ["Unicorn"] = { color = Color3.fromRGB(205, 0, 255), category = "Mob" },
+    
     ["RifleOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
     ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
     ["RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
-    ["Runner"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
-    ["Walker"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+    
+    ["Runner"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
+    ["Walker"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
+    ["Ironclad Zombie"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+    ["Dynamite Zombie"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+    ["Sheriff Zombie"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+    ["WereWolf"] = { color = Color3.fromRGB(141, 75, 240), category = "Zombies" },
+    ["Dracula"] = { color = Color3.fromRGB(141, 75, 240), category = "Zombies" },
+    
     ["Vampire Knife"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
     ["Revolver"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
     ["Rifle"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
@@ -379,9 +388,12 @@ local espTargets = {
     ["Crucifix"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
     ["Molotov"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
     ["Holy Water"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+    ["Jade Sword"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
+    
     ["RifleAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
     ["ShotgunShells"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
     ["RevolverAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
+    
 }
 
 -- 🟢 Tự động gắn tag cho các đối tượng trong danh sách espTargets
