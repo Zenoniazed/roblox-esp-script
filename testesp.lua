@@ -216,145 +216,141 @@ game:GetService("RunService").Stepped:Connect(function()
         end
     end
 end)
--- 🟢 Biến điều khiển Aimbot
+-- 🟢 Biến điều khiển
 local aimbotEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
-local enemiesList = {}        -- 🟢 Danh sách kẻ địch được cập nhật định kỳ
+local enemiesList = {}
 local currentTarget = nil
-local maxAimbotDistance = 500 -- 🟢 Giới hạn khoảng cách Aimbot
-local aimbotFOVRadius = 25    -- 🟢 Kích thước vòng FOV
+local maxAimbotDistance = 500
+local aimbotFOVRadius = 25
 
--- 🟢 Tạo GUI hiển thị FOV
+-- 🟢 GUI FOV
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local FOVCircle = Instance.new("Frame")
-
 FOVCircle.Parent = ScreenGui
 FOVCircle.Size = UDim2.new(0, aimbotFOVRadius * 2, 0, aimbotFOVRadius * 2)
 FOVCircle.BackgroundTransparency = 1
 FOVCircle.BorderSizePixel = 0
-FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)  -- 🟢 Căn giữa chính xác
-FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0) -- 🟢 Luôn đặt ở tâm màn hình
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 FOVCircle.Visible = false
-
-local UICorner = Instance.new("UICorner", FOVCircle)
-UICorner.CornerRadius = UDim.new(1, 0)
-
+Instance.new("UICorner", FOVCircle).CornerRadius = UDim.new(1, 0)
 local UIStroke = Instance.new("UIStroke", FOVCircle)
 UIStroke.Thickness = 2
 UIStroke.Color = Color3.fromRGB(0, 255, 0)
 UIStroke.Transparency = 0.5
 
--- 🟢 Cập nhật vị trí FOV theo tâm màn hình
 game:GetService("RunService").RenderStepped:Connect(function()
-    local camera = game.Workspace.CurrentCamera
-    if camera then
-        FOVCircle.Position = UDim2.new(0.5, 0, 0.46, 0) -- 🔥 Luôn ở tâm
-    end
+    FOVCircle.Position = UDim2.new(0.5, 0, 0.46, 0)
 end)
 
--- 🟢 Kiểm tra mục tiêu có nằm trong FOV không
 local function isWithinFOV(target)
     local camera = game.Workspace.CurrentCamera
-    local targetScreenPos, onScreen = camera:WorldToViewportPoint(target.Position)
-
-    if onScreen then
-        local centerX, centerY = camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
-        local distanceFromCenter = math.sqrt((targetScreenPos.X - centerX) ^ 2 + (targetScreenPos.Y - centerY) ^ 2)
-
-        return distanceFromCenter <= aimbotFOVRadius
-    end
-
-    return false
+    local screenPos, onScreen = camera:WorldToViewportPoint(target.Position)
+    if not onScreen then return false end
+    local center = camera.ViewportSize / 2
+    local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(center.X, center.Y)).Magnitude
+    return dist <= aimbotFOVRadius
 end
 
--- 🟢 Cập nhật danh sách enemy mỗi 0.5 giây (Chỉ khi bật Aimbot)
+-- 🟢 Cập nhật danh sách enemy
 task.spawn(function()
     while true do
-        if aimbotEnabled then -- 🔥 Chỉ chạy nếu Aimbot bật
-            enemiesList = {}  -- 🟢 Xóa danh sách cũ
+        if aimbotEnabled then
+            enemiesList = {}
             for _, obj in pairs(game.Workspace:GetDescendants()) do
                 if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
-                    local enemyHumanoid = obj:FindFirstChildWhichIsA("Humanoid")
-                    local enemyHead = obj:FindFirstChild("Head") or
-                    obj:FindFirstChild("HumanoidRootPart")                                                 -- 🔹 Fix nếu không có Head
-
-                    -- 🟢 Chỉ thêm vào danh sách nếu còn sống
-                    if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
-                        table.insert(enemiesList, { head = enemyHead, humanoid = enemyHumanoid, model = obj })
+                    local humanoid = obj:FindFirstChildWhichIsA("Humanoid")
+                    local head = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart")
+                    if humanoid and humanoid.Health > 0 and head then
+                        table.insert(enemiesList, { head = head, humanoid = humanoid, model = obj })
                     end
                 end
             end
-            -- print("🔍 Cập nhật danh sách kẻ địch:", #enemiesList) -- Debug số lượng enemy tìm thấy
         end
-        task.wait(0.5) -- 🔹 Chỉ cập nhật mỗi 0.5 giây
+        task.wait(0.5)
     end
 end)
 
--- 🟢 Tìm kẻ địch gần nhất trong FOV
+-- 🟢 Tìm enemy gần nhất có thể nhìn thấy
 local function getNearestEnemy()
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
-    local nearestEnemy = nil
-    local minDistance = math.huge
+    local nearest, minDistance = nil, math.huge
+    local camera = game.Workspace.CurrentCamera
+    local origin = camera.CFrame.Position
 
-    -- 🟢 Duyệt danh sách kẻ địch đã cache thay vì toàn bộ Workspace
     for _, enemy in pairs(enemiesList) do
-        if enemy.head and enemy.head.Parent and enemy.humanoid.Health > 0 then                           -- 🟢 Kiểm tra mob còn sống
+        if enemy.head and enemy.head.Parent and enemy.humanoid.Health > 0 and isWithinFOV(enemy.head) then
             local distance = (hrp.Position - enemy.head.Position).Magnitude
-            if distance < minDistance and distance <= maxAimbotDistance and isWithinFOV(enemy.head) then -- 🔹 Chỉ nhắm vào mục tiêu trong FOV
-                nearestEnemy = enemy.head
-                minDistance = distance
+            if distance <= maxAimbotDistance and distance < minDistance then
+                -- 🔍 Raycast kiểm tra vật cản
+                local direction = (enemy.head.Position - origin)
+                local rayParams = RaycastParams.new()
+                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                rayParams.FilterDescendantsInstances = { character }
+                rayParams.IgnoreWater = true
+                local hit = game.Workspace:Raycast(origin, direction, rayParams)
+
+                if not hit or (hit.Instance and hit.Instance:IsDescendantOf(enemy.model)) then
+                    nearest = enemy.head
+                    minDistance = distance
+                end
             end
         end
     end
 
-    return nearestEnemy
+    return nearest
 end
 
--- 🟢 Kích hoạt Aimbot (Fix lỗi nhắm vào mob chết + chỉ aim trong FOV)
-game:GetService("RunService").RenderStepped:Connect(function()
-    if aimbotEnabled then
-        local newTarget = getNearestEnemy() -- 🔥 Kiểm tra mục tiêu gần hơn mỗi frame
-
-        -- 🔹 Nếu có kẻ địch gần hơn, đổi target ngay
-        if newTarget and newTarget ~= currentTarget then
-            currentTarget = newTarget
-        end
-
-        -- 🔹 Chỉ cập nhật `CFrame` nếu có mục tiêu hợp lệ
-        if currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health > 0 then
-            local camera = game.Workspace.CurrentCamera
-            local aimPosition = currentTarget.Position + Vector3.new(0, 0.5, 0)
-            camera.CFrame = CFrame.new(camera.CFrame.Position, aimPosition)
+-- 🟢 Cập nhật mục tiêu mỗi 0.1s
+task.spawn(function()
+    while true do
+        if aimbotEnabled then
+            currentTarget = getNearestEnemy()
         else
-            currentTarget = nil -- 🔴 Nếu mục tiêu chết hoặc mất, reset target
+            currentTarget = nil
         end
-    else
-        currentTarget = nil -- 🔴 Reset khi tắt Aimbot
+        task.wait(0.1)
     end
 end)
 
+-- 🟢 Aim vào mục tiêu đã chọn (mỗi frame)
+game:GetService("RunService").RenderStepped:Connect(function()
+    if aimbotEnabled and currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health > 0 then
+        local camera = game.Workspace.CurrentCamera
+        local aimPosition = currentTarget.Position + Vector3.new(0, 0.5, 0)
+        camera.CFrame = CFrame.new(camera.CFrame.Position, aimPosition)
+    end
+end)
 
--- 🟢 Nút bật/tắt Aimbot
+-- 🟢 Nút bật/tắt Aimbot (với T hoặc GUI)
 local function toggleAimbot()
     aimbotEnabled = not aimbotEnabled
-    FOVCircle.Visible = aimbotEnabled -- 🔥 Hiện/ẩn FOV khi bật/tắt Aimbot
-    AimbotButton.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    FOVCircle.Visible = aimbotEnabled
+    if AimbotButton then
+        AimbotButton.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
+    end
     print(aimbotEnabled and "🟢 Aimbot ĐÃ BẬT" or "🔴 Aimbot ĐÃ TẮT")
 end
 
-AimbotButton.MouseButton1Click:Connect(toggleAimbot)
-game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.T then
+if AimbotButton then
+    AimbotButton.MouseButton1Click:Connect(toggleAimbot)
+end
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == Enum.KeyCode.T then
         toggleAimbot()
     end
 end)
 
+
 local CollectionService = game:GetService("CollectionService")
 
+-- 🟢 Danh sách màu ESP theo danh mục
 -- 🟢 Danh sách màu ESP theo danh mục
 local espTargets = {
     ["GoldBar"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
@@ -373,9 +369,10 @@ local espTargets = {
     
     ["Runner"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
     ["Walker"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
-    ["Ironclad Zombie"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
-    ["Dynamite Zombie"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
-    ["Sheriff Zombie"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+    ["Banker"] = { color = Color3.fromRGB(155, 103, 100), category = "Zombies" },
+    ["ArmoredZombie"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+    ["ZombieMiner"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
+    ["ZombieSheriff"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
     ["WereWolf"] = { color = Color3.fromRGB(141, 75, 240), category = "Zombies" },
     ["Dracula"] = { color = Color3.fromRGB(141, 75, 240), category = "Zombies" },
     
