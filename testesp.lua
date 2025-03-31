@@ -7,6 +7,8 @@ local AimbotButton = Instance.new("TextButton")
 local FullbrightButton = Instance.new("TextButton") -- 🟢 Nút Fullbright
 local OptionsFrame = Instance.new("Frame")
 
+
+
 local options = {
     { name = "Vật phẩm", enabled = false },
     { name = "Enemies bán được", enabled = false },
@@ -15,7 +17,7 @@ local options = {
     { name = "Vũ khí", enabled = false },
 }
 
-ScreenGui.Parent = game.CoreGui
+
 
 -- 🟢 Khung chính (Nhỏ gọn hơn)
 MainFrame.Parent = ScreenGui
@@ -24,34 +26,72 @@ MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BorderSizePixel = 2
 MainFrame.Active = true
+local MainFrameCorner = Instance.new("UICorner", MainFrame)
+MainFrameCorner.CornerRadius = UDim.new(0, 10)
 
 -- 🟢 Nút ESP (Chiếm toàn bộ MainFrame)
 ESPButton.Parent = MainFrame
 ESPButton.Size = UDim2.new(0, 60, 0, 40) -- 🟢 Giữ nguyên kích thước
 ESPButton.Position = UDim2.new(0, 15, 0, 5)
-ESPButton.Text = "ESP"
+ESPButton.Text = "👁️\nESP"
 ESPButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+local ESPButtonCorner = Instance.new("UICorner", ESPButton)
+ESPButtonCorner.CornerRadius = UDim.new(0, 10)
+ESPButton.Font = Enum.Font.GothamBold
+ESPButton.TextSize = 12
+ESPButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+local ESPButtonstroke = Instance.new("UIStroke", ESPButton)
+ESPButtonstroke.Thickness = 1
+ESPButtonstroke.Color = Color3.fromRGB(120, 120, 120)
+ESPButtonstroke.Transparency = 0.3
 
 -- 🟢 Nút Noclip (Mới thêm vào)
 NoclipButton.Parent = MainFrame
 NoclipButton.Size = UDim2.new(0, 60, 0, 40)
-NoclipButton.Position = UDim2.new(0, 75, 0, 5)
-NoclipButton.Text = "Noclip"
-NoclipButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Màu đỏ khi tắt
+NoclipButton.Position = UDim2.new(0, 76, 0, 5)
+NoclipButton.Text = "🚪\nNoclip"
+NoclipButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40) -- Màu đỏ khi tắt
+local NoclipButtonCorner = Instance.new("UICorner", NoclipButton)
+NoclipButtonCorner.CornerRadius = UDim.new(0, 10)
+NoclipButton.Font = Enum.Font.GothamBold
+NoclipButton.TextSize = 12
+NoclipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+local NoclipButtonstroke = Instance.new("UIStroke", NoclipButton)
+NoclipButtonstroke.Thickness = 1
+NoclipButtonstroke.Color = Color3.fromRGB(120, 120, 120)
+NoclipButtonstroke.Transparency = 0.3
 
 -- 🟢 Nút Aimbot
 AimbotButton.Parent = MainFrame
 AimbotButton.Size = UDim2.new(0, 60, 0, 40)
-AimbotButton.Position = UDim2.new(0, 135, 0, 5)           -- Đặt dưới Noclip
-AimbotButton.Text = "Aimbot"
-AimbotButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Mặc định là tắt
+AimbotButton.Position = UDim2.new(0, 137, 0, 5)           -- Đặt dưới Noclip
+AimbotButton.Text = "🎯\nAimbot"
+AimbotButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40) -- Mặc định là tắt
+local AimbotButtonCorner = Instance.new("UICorner", AimbotButton)
+AimbotButtonCorner.CornerRadius = UDim.new(0, 10)
+AimbotButton.Font = Enum.Font.GothamBold
+AimbotButton.TextSize = 12
+AimbotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+local AimbotButtonstroke = Instance.new("UIStroke", AimbotButton)
+AimbotButtonstroke.Thickness = 1
+AimbotButtonstroke.Color = Color3.fromRGB(120, 120, 120)
+AimbotButtonstroke.Transparency = 0.3
 
 -- 🟢 Nút Fullbright
 FullbrightButton.Parent = MainFrame
 FullbrightButton.Size = UDim2.new(0, 60, 0, 40)
-FullbrightButton.Position = UDim2.new(0, 195, 0, 5)
-FullbrightButton.Text = "Bright"
-FullbrightButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+FullbrightButton.Position = UDim2.new(0, 198, 0, 5)
+FullbrightButton.Text = "💡\nBright"
+FullbrightButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+local FullbrightButtonCorner = Instance.new("UICorner", FullbrightButton)
+FullbrightButtonCorner.CornerRadius = UDim.new(0, 10)
+FullbrightButton.Font = Enum.Font.GothamBold
+FullbrightButton.TextSize = 12
+FullbrightButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+local FullbrightButtonstroke = Instance.new("UIStroke", FullbrightButton)
+FullbrightButtonstroke.Thickness = 1
+FullbrightButtonstroke.Color = Color3.fromRGB(120, 120, 120)
+FullbrightButtonstroke.Transparency = 0.3
 
 
 
@@ -61,6 +101,8 @@ OptionsFrame.Size = UDim2.new(0, 150, 0, #options * 35 + 5)
 OptionsFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 OptionsFrame.BorderSizePixel = 2
 OptionsFrame.Visible = false
+local OptionsFrameCorner = Instance.new("UICorner", OptionsFrame)
+OptionsFrameCorner.CornerRadius = UDim.new(0, 10)
 
 local function updateOptionsFramePosition()
     OptionsFrame.Position = UDim2.new(0, MainFrame.Position.X.Offset + MainFrame.Size.X.Offset + 5, 0,
@@ -76,13 +118,22 @@ for i, option in ipairs(options) do
     local optionButton = Instance.new("TextButton")
     optionButton.Parent = OptionsFrame
     optionButton.Size = UDim2.new(0, 140, 0, 30)
-    optionButton.Position = UDim2.new(0, 5, 0, (i - 1) * 35)
+    optionButton.Position = UDim2.new(0, 5, 0, 5 + (i - 1) * (30 + 5))
     optionButton.Text = option.name
-    optionButton.BackgroundColor3 = option.enabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    local optionButtonCorner = Instance.new("UICorner", optionButton)
+    optionButtonCorner.CornerRadius = UDim.new(0, 10)
+    optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    optionButton.Font = Enum.Font.GothamBold
+    optionButton.TextSize = 12
+    local optionButtonstroke = Instance.new("UIStroke", optionButton)
+    optionButtonstroke.Thickness = 1
+    optionButtonstroke.Color = Color3.fromRGB(120, 40, 40)
+    optionButtonstroke.Transparency = 0.3
+    optionButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
 
     optionButton.MouseButton1Click:Connect(function()
         option.enabled = not option.enabled
-        optionButton.BackgroundColor3 = option.enabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        optionButton.BackgroundColor3 = option.enabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(120, 40, 40)
     end)
 end
 
@@ -153,7 +204,7 @@ end
 -- 🟢 Hàm bật/tắt Fullbright
 local function toggleFullbright()
     fullbrightEnabled = not fullbrightEnabled
-    FullbrightButton.BackgroundColor3 = fullbrightEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    FullbrightButton.BackgroundColor3 = fullbrightEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(120, 40, 40)
 
     if fullbrightEnabled then
         applyFullbright()
@@ -186,7 +237,7 @@ local noclipEnabled = false
 -- 🟢 Hàm bật/tắt Noclip
 local function toggleNoclip()
     noclipEnabled = not noclipEnabled
-    NoclipButton.BackgroundColor3 = noclipEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    NoclipButton.BackgroundColor3 = noclipEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(120, 40, 40)
 
     if noclipEnabled then
         print("🟢 Noclip ĐÃ BẬT")
@@ -218,11 +269,12 @@ game:GetService("RunService").Stepped:Connect(function()
 end)
 -- 🟢 Biến điều khiển
 local aimbotEnabled = false
+local autoShootEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
 local enemiesList = {}
 local currentTarget = nil
-local maxAimbotDistance = 750
-local aimbotFOVRadius = 75
+local maxAimbotDistance = 500
+local aimbotFOVRadius = 50
 
 -- 🟢 GUI FOV
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
@@ -244,6 +296,78 @@ game:GetService("RunService").RenderStepped:Connect(function()
     FOVCircle.Position = UDim2.new(0.5, 0, 0.46, 0)
 end)
 
+-- 🟢 ESP Highlight target
+local highlight = Instance.new("Highlight")
+highlight.FillColor = Color3.fromRGB(0, 255, 0)
+highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+highlight.FillTransparency = 0.3
+highlight.OutlineTransparency = 0
+highlight.Enabled = false
+highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+highlight.Parent = game.CoreGui
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if aimbotEnabled and currentTarget and currentTarget.Parent then
+        highlight.Adornee = currentTarget.Parent
+        highlight.Enabled = true
+    else
+        highlight.Adornee = nil
+        highlight.Enabled = false
+    end
+end)
+
+
+-- 🟢 Nâng cấp nút AutoShoot
+local AutoShootButton = Instance.new("TextButton")
+AutoShootButton.Name = "AutoShoot"
+AutoShootButton.Parent = MainFrame
+AutoShootButton.Size = UDim2.new(0, 120, 0, 30)
+AutoShootButton.Position = UDim2.new(0, 100, 0, 50)
+AutoShootButton.Text = "AutoShoot"
+AutoShootButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+AutoShootButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoShootButton.Font = Enum.Font.GothamBold
+AutoShootButton.TextSize = 12
+AutoShootButton.TextWrapped = true
+AutoShootButton.Visible = false
+AutoShootButton.AutoButtonColor = false
+
+-- Bo góc
+local autoCorner = Instance.new("UICorner", AutoShootButton)
+autoCorner.CornerRadius = UDim.new(0, 6)
+
+-- Viền nhẹ
+local autoStroke = Instance.new("UIStroke", AutoShootButton)
+autoStroke.Thickness = 1
+autoStroke.Color = Color3.fromRGB(180, 180, 180)
+autoStroke.Transparency = 0.4
+
+
+-- 🟢 Nút bật/tắt AutoShoot
+AutoShootButton.MouseButton1Click:Connect(function()
+    autoShootEnabled = not autoShootEnabled
+    AutoShootButton.Text = autoShootEnabled and "AutoShoot: ON" or "AutoShoot: OFF"
+    AutoShootButton.BackgroundColor3 = autoShootEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(120, 40, 40)
+end)
+
+
+-- 🟢 Nút bật/tắt Aimbot
+local function toggleAimbot()
+    aimbotEnabled = not aimbotEnabled
+    FOVCircle.Visible = aimbotEnabled
+    AutoShootButton.Visible = aimbotEnabled
+    AimbotButton.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(120, 40, 40)
+    print(aimbotEnabled and "🟢 Aimbot ĐÃ BẬT" or "🔴 Aimbot ĐÃ TẮT")
+end
+
+AimbotButton.MouseButton1Click:Connect(toggleAimbot)
+game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == Enum.KeyCode.T then
+        toggleAimbot()
+    end
+end)
+
+-- 🟢 Kiểm tra FOV
 local function isWithinFOV(target)
     local camera = game.Workspace.CurrentCamera
     local screenPos, onScreen = camera:WorldToViewportPoint(target.Position)
@@ -253,7 +377,7 @@ local function isWithinFOV(target)
     return dist <= aimbotFOVRadius
 end
 
--- 🟢 Cập nhật danh sách enemy
+-- 🟢 Cập nhật enemy list mỗi 0.5s
 task.spawn(function()
     while true do
         if aimbotEnabled then
@@ -272,32 +396,48 @@ task.spawn(function()
     end
 end)
 
--- 🟢 Tìm enemy gần nhất có thể nhìn thấy
+-- 🟢 Tìm enemy hợp lệ + không bị tường cản
 local function getNearestEnemy()
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
+    local camera = workspace.CurrentCamera
+    -- local origin = camera.CFrame.Position
+    local origin = hrp.Position
     local nearest, minDistance = nil, math.huge
-    local camera = game.Workspace.CurrentCamera
-    local origin = camera.CFrame.Position
 
     for _, enemy in pairs(enemiesList) do
-        if enemy.head and enemy.head.Parent and enemy.humanoid.Health > 0 and isWithinFOV(enemy.head) then
+        if enemy.head and enemy.head.Parent and enemy.humanoid.Health > 0 then
             local distance = (hrp.Position - enemy.head.Position).Magnitude
-            if distance <= maxAimbotDistance and distance < minDistance then
-                -- 🔍 Raycast kiểm tra vật cản
-                local direction = (enemy.head.Position - origin)
-                local rayParams = RaycastParams.new()
-                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                rayParams.FilterDescendantsInstances = { character }
-                rayParams.IgnoreWater = true
-                local hit = game.Workspace:Raycast(origin, direction, rayParams)
+            if distance <= maxAimbotDistance and isWithinFOV(enemy.head) then
+                -- 🧠 Danh sách các bộ phận để kiểm tra Raycast
+                local partsToCheck = {
+                    enemy.model:FindFirstChild("Head"),
+                    enemy.model:FindFirstChild("Torso") or enemy.model:FindFirstChild("UpperTorso"),
+                    enemy.model:FindFirstChild("HumanoidRootPart")
+                }
 
-                if not hit or (hit.Instance and hit.Instance:IsDescendantOf(enemy.model)) then
-                    nearest = enemy.head
-                    minDistance = distance
+                for _, part in ipairs(partsToCheck) do
+                    if part then
+                        local direction = (part.Position - origin).Unit * distance
+                        local rayParams = RaycastParams.new()
+                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                        rayParams.FilterDescendantsInstances = { character, camera }
+                        rayParams.IgnoreWater = true
+
+                        local result = workspace:Raycast(origin, direction, rayParams)
+
+                        -- ✅ Nếu Raycast không bị block hoặc chỉ trúng enemy → chọn!
+                        if not result or result.Instance:IsDescendantOf(enemy.model) then
+                            if distance < minDistance then
+                                nearest = part
+                                minDistance = distance
+                                break
+                            end
+                        end
+                    end
                 end
             end
         end
@@ -306,7 +446,9 @@ local function getNearestEnemy()
     return nearest
 end
 
--- 🟢 Cập nhật mục tiêu mỗi 0.1s
+
+
+-- 🟢 Cập nhật target mỗi 0.1s
 task.spawn(function()
     while true do
         if aimbotEnabled then
@@ -318,32 +460,37 @@ task.spawn(function()
     end
 end)
 
--- 🟢 Aim vào mục tiêu đã chọn (mỗi frame)
+-- 🟢 Kích hoạt Aimbot (Fix lỗi nhắm vào mob chết + chỉ aim trong FOV)
 game:GetService("RunService").RenderStepped:Connect(function()
-    if aimbotEnabled and currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health > 0 then
-        local camera = game.Workspace.CurrentCamera
-        local aimPosition = currentTarget.Position + Vector3.new(0, 0.5, 0)
-        camera.CFrame = CFrame.new(camera.CFrame.Position, aimPosition)
+    if aimbotEnabled then
+        local newTarget = getNearestEnemy() -- 🔥 Kiểm tra mục tiêu gần hơn mỗi frame
+
+        -- 🔹 Nếu có kẻ địch gần hơn, đổi target ngay
+        if newTarget and newTarget ~= currentTarget then
+            currentTarget = newTarget
+        end
+
+        -- 🔹 Chỉ cập nhật `CFrame` nếu có mục tiêu hợp lệ
+        if currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health > 0 then
+            local camera = game.Workspace.CurrentCamera
+            local aimPosition = currentTarget.Position + Vector3.new(0, 0.5, 0)
+            camera.CFrame = CFrame.new(camera.CFrame.Position, aimPosition)
+        else
+            currentTarget = nil -- 🔴 Nếu mục tiêu chết hoặc mất, reset target
+        end
+    else
+        currentTarget = nil -- 🔴 Reset khi tắt Aimbot
     end
 end)
-
--- 🟢 Nút bật/tắt Aimbot (với T hoặc GUI)
-local function toggleAimbot()
-    aimbotEnabled = not aimbotEnabled
-    FOVCircle.Visible = aimbotEnabled
-    if AimbotButton then
-        AimbotButton.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
-    end
-    print(aimbotEnabled and "🟢 Aimbot ĐÃ BẬT" or "🔴 Aimbot ĐÃ TẮT")
-end
-
-if AimbotButton then
-    AimbotButton.MouseButton1Click:Connect(toggleAimbot)
-end
-
-game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
-    if not gp and input.KeyCode == Enum.KeyCode.T then
-        toggleAimbot()
+-- 🔫 AutoShoot khi đang aim đúng target
+task.spawn(function()
+    while true do
+        if aimbotEnabled and autoShootEnabled and currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChildWhichIsA("Humanoid").Health > 0 then
+            mouse1press()
+            task.wait(0.1)
+            mouse1release()
+        end
+        task.wait(0.05)
     end
 end)
 
@@ -358,15 +505,15 @@ local espTargets = {
     ["Bond"] = { color = Color3.fromRGB(246, 14, 76), category = "Vật phẩm" },
     ["Bandage"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
     ["Snake Oil"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
-    
+
     ["Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
     ["Wolf"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
     ["Unicorn"] = { color = Color3.fromRGB(205, 0, 255), category = "Mob" },
-    
+
     ["RifleOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
     ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
     ["RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
-    
+
     ["Runner"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
     ["Walker"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
     ["Banker"] = { color = Color3.fromRGB(155, 103, 100), category = "Zombies" },
@@ -375,7 +522,7 @@ local espTargets = {
     ["ZombieSheriff"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
     ["WereWolf"] = { color = Color3.fromRGB(141, 75, 240), category = "Zombies" },
     ["Dracula"] = { color = Color3.fromRGB(141, 75, 240), category = "Zombies" },
-    
+
     ["Vampire Knife"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
     ["Revolver"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
     ["Rifle"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
@@ -386,11 +533,11 @@ local espTargets = {
     ["Molotov"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
     ["Holy Water"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
     ["Jade Sword"] = { color = Color3.fromRGB(85, 200, 255), category = "Vũ khí" },
-    
+
     ["RifleAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
     ["ShotgunShells"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
     ["RevolverAmmo"] = { color = Color3.fromRGB(12, 154, 111), category = "Vũ khí" },
-    
+
 }
 
 -- 🟢 Tự động gắn tag cho các đối tượng trong danh sách espTargets
@@ -484,4 +631,3 @@ game:GetService("RunService").RenderStepped:Connect(function()
         end
     end
 end)
-
