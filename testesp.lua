@@ -17,7 +17,7 @@ local options = {
     { name = "Vũ khí", enabled = false },
 }
 
-
+ScreenGui.Parent = game.CoreGui
 
 -- 🟢 Khung chính (Nhỏ gọn hơn)
 MainFrame.Parent = ScreenGui
