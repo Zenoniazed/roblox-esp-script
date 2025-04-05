@@ -631,7 +631,7 @@ game:GetService("RunService").RenderStepped:Connect(function()
         end
     end
 end)
-// show Hp player
+-- show Hp player
 local Players = game:GetService("Players")
 
 local function addNametag(character)
