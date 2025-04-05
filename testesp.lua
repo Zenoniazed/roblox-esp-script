@@ -184,9 +184,9 @@ local function applyFullbright()
     lighting.ClockTime = 14.5
     lighting.FogStart = 0
     lighting.FogEnd = 100000
-    lighting.FogColor = Color3.new(0.252941, 0.252941, 0.252941)
-    lighting.Ambient = Color3.new(0.211765, 0.211765, 0.211765)
-    lighting.OutdoorAmbient = Color3.new(0.211765, 0.211765, 0.211765)
+    lighting.FogColor = Color3.new(0.752941, 0.752941, 0.752941)
+    lighting.Ambient = Color3.new(0.611765, 0.611765, 0.611765)
+    lighting.OutdoorAmbient = Color3.new(0.611765, 0.611765, 0.611765)
     lighting.GlobalShadows = false
     lighting.EnvironmentDiffuseScale = 1
     lighting.EnvironmentSpecularScale = 1
