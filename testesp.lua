@@ -631,3 +631,77 @@ game:GetService("RunService").RenderStepped:Connect(function()
         end
     end
 end)
+// show Hp player
+local Players = game:GetService("Players")
+
+local function addNametag(character)
+    local hrp = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+    local humanoid = character:WaitForChild("Humanoid")
+
+    if not hrp or hrp:FindFirstChild("ESP_HP") then return end
+
+    local espHP = Instance.new("BillboardGui")
+    espHP.Name = "ESP_HP"
+    espHP.Size = UDim2.new(2, 0, 2, 0)
+    espHP.StudsOffset = Vector3.new(0, 3, 0)
+    espHP.Adornee = hrp
+    espHP.AlwaysOnTop = true
+    espHP.MaxDistance = 1000
+    espHP.Parent = hrp
+        
+    -- Tên người chơi
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.Position = UDim2.new(0, 0, 1, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 10
+    nameLabel.Text = Players:GetPlayerFromCharacter(character) and Players:GetPlayerFromCharacter(character).Name or character.Name
+    nameLabel.Parent = espHP
+
+    -- HP %
+    local hpLabel = Instance.new("TextLabel")
+    hpLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    hpLabel.Position = UDim2.new(0, 0 , 0 , 0)
+    hpLabel.BackgroundTransparency = 1
+    hpLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    hpLabel.TextStrokeTransparency = 0.5
+    hpLabel.Font = Enum.Font.GothamBold
+    hpLabel.TextSize = 10
+    hpLabel.Text = "❤️ 100%"
+    hpLabel.Name = "HPLabel"
+    hpLabel.Parent = espHP
+
+
+    -- Cập nhật HP %
+    local function updateHealth()
+        local percent = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
+        hpLabel.Text = "❤️ " .. percent .. "%"
+    end
+
+    humanoid:GetPropertyChangedSignal("Health"):Connect(updateHealth)
+    updateHealth()
+end
+
+local function onCharacterAdded(character)
+    addNametag(character)
+end
+
+local function setupAllPlayers()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            addNametag(player.Character)
+        end
+        player.CharacterAdded:Connect(onCharacterAdded)
+    end
+end
+
+setupAllPlayers()
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(onCharacterAdded)
+end)
+
+
+
