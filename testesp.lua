@@ -600,7 +600,7 @@ local function createBankerESP()
         label.TextColor3 = Color3.fromRGB(255, 255, 0)
         label.TextStrokeTransparency = 0.4
         label.Text = "💰: " .. tostring(combo.Value)
-        label.TextSize = 10
+        label.TextSize = 12
         label.Font = Enum.Font.GothamBold
     end
 
