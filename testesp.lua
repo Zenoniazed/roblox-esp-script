@@ -516,7 +516,6 @@ local espTargets = {
 
     ["Runner"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
     ["Walker"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
-    ["Banker"] = { color = Color3.fromRGB(155, 103, 100), category = "Zombies" },
     ["ArmoredZombie"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
     ["ZombieMiner"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
     ["ZombieSheriff"] = { color = Color3.fromRGB(85, 0, 255), category = "Zombies" },
@@ -577,6 +576,51 @@ local function createESP(obj, color)
     text.TextStrokeTransparency = 0.5
 end
 
+-- 🔍 Hiển thị Vault Code trên đầu mỗi Banker
+local function createBankerESP()
+    local function updateESPForBanker(banker)
+        if not banker:IsA("Model") then return end
+        local head = banker:FindFirstChild("Head") or banker:FindFirstChild("HumanoidRootPart")
+        local combo = banker:FindFirstChild("Combo")
+        if not head or not combo or head:FindFirstChild("VaultESP") then return end
+
+        local esp = Instance.new("BillboardGui")
+        esp.Name = "VaultESP"
+        esp.Adornee = head
+        esp.Size = UDim2.new(0, 200, 0, 40)
+        esp.StudsOffset = Vector3.new(0, 2.5, 0)
+        esp.AlwaysOnTop = true
+        esp.MaxDistance = 1000
+        esp.Parent = head
+
+        local label = Instance.new("TextLabel")
+        label.Parent = esp
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 0)
+        label.TextStrokeTransparency = 0.4
+        label.Text = "💰 Combo: " .. tostring(combo.Value)
+        label.TextScaled = true
+        label.Font = Enum.Font.GothamBold
+    end
+
+    -- Gắn ESP cho Banker có sẵn
+    for _, banker in ipairs(workspace:WaitForChild("RuntimeEntities"):GetChildren()) do
+        if banker.Name == "Banker" then
+            updateESPForBanker(banker)
+        end
+    end
+
+    -- Theo dõi Banker spawn mới
+    workspace.RuntimeEntities.ChildAdded:Connect(function(child)
+        if child.Name == "Banker" then
+            task.wait(0.3) -- Đợi Combo tồn tại
+            updateESPForBanker(child)
+        end
+    end)
+end
+
+createBankerESP()
 -- 🟢 Lấy vị trí đối tượng (có xử lý Model & BasePart)
 local function getObjectPosition(obj)
     if obj:IsA("Tool") then
