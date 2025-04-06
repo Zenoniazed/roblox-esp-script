@@ -587,7 +587,7 @@ local function createBankerESP()
         local esp = Instance.new("BillboardGui")
         esp.Name = "VaultESP"
         esp.Adornee = head
-        esp.Size = UDim2.new(0, 200, 0, 40)
+        esp.Size = UDim2.new(2, 0, 1, 0)
         esp.StudsOffset = Vector3.new(0, 2.5, 0)
         esp.AlwaysOnTop = true
         esp.MaxDistance = 1000
@@ -599,8 +599,8 @@ local function createBankerESP()
         label.BackgroundTransparency = 1
         label.TextColor3 = Color3.fromRGB(255, 255, 0)
         label.TextStrokeTransparency = 0.4
-        label.Text = "💰 Combo: " .. tostring(combo.Value)
-        label.TextScaled = true
+        label.Text = "💰: " .. tostring(combo.Value)
+        label.TextSize = 10
         label.Font = Enum.Font.GothamBold
     end
 
