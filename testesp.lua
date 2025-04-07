@@ -98,7 +98,7 @@ FullbrightButtonstroke.Transparency = 0.3
 IsPersonButton.Parent = MainFrame
 IsPersonButton.Size = UDim2.new(0, 60, 0, 40)
 IsPersonButton.Position = UDim2.new(0, 259, 0, 5)
-IsPersonButton.Text = "📷\nCamera"
+IsPersonButton.Text = "📷\nCamera 3rd"
 IsPersonButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
 local IsPersonButtonCorner = Instance.new("UICorner", IsPersonButton)
 IsPersonButtonCorner.CornerRadius = UDim.new(0, 10)
@@ -199,12 +199,12 @@ local lighting = game:GetService("Lighting")
 -- 🟢 Hàm áp dụng cấu hình Fullbright
 local function applyFullbright()
     lighting.Brightness = 1.5
-    lighting.ClockTime = 14.5
+    lighting.ClockTime = 8
     lighting.FogStart = 0
     lighting.FogEnd = 100000
-    lighting.FogColor = Color3.new(0.752941, 0.752941, 0.752941)
-    lighting.Ambient = Color3.new(0.611765, 0.611765, 0.611765)
-    lighting.OutdoorAmbient = Color3.new(0.611765, 0.611765, 0.611765)
+    lighting.FogColor = Color3.new(0.452941, 0.452941, 0.452941)
+    lighting.Ambient = Color3.new(0.4, 0.4, 0.4)
+    lighting.OutdoorAmbient = Color3.new(0.4, 0.4, 0.4)
     lighting.GlobalShadows = false
     lighting.EnvironmentDiffuseScale = 1
     lighting.EnvironmentSpecularScale = 1
@@ -775,10 +775,12 @@ local function updateCamera()
         plr.CameraMode = Enum.CameraMode.LockFirstPerson
         plr.CameraMinZoomDistance = 0
         plr.CameraMaxZoomDistance = 0
+        IsPersonButton.Text = "📷\nCamera 1st"
     else
         plr.CameraMode = Enum.CameraMode.Classic
         plr.CameraMinZoomDistance = 0
         plr.CameraMaxZoomDistance = 50
+        IsPersonButton.Text = "📷\nCamera 3rd"
     end
 end
 
