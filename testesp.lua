@@ -5,6 +5,7 @@ local ESPButton = Instance.new("TextButton")
 local NoclipButton = Instance.new("TextButton")     -- 🟢 Nút Noclip
 local AimbotButton = Instance.new("TextButton")
 local FullbrightButton = Instance.new("TextButton") -- 🟢 Nút Fullbright
+local IsPersonButton = Instance.new("TextButton")
 local OptionsFrame = Instance.new("Frame")
 
 
@@ -92,6 +93,23 @@ local FullbrightButtonstroke = Instance.new("UIStroke", FullbrightButton)
 FullbrightButtonstroke.Thickness = 1
 FullbrightButtonstroke.Color = Color3.fromRGB(120, 120, 120)
 FullbrightButtonstroke.Transparency = 0.3
+
+-- 🟢 Nút IsPerson
+IsPersonButton.Parent = MainFrame
+IsPersonButton.Size = UDim2.new(0, 60, 0, 40)
+IsPersonButton.Position = UDim2.new(0, 198, 0, 5)
+IsPersonButton.Text = "📷\Camera"
+IsPersonButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+local IsPersonButtonCorner = Instance.new("UICorner", IsPersonButton)
+IsPersonButtonCorner.CornerRadius = UDim.new(0, 10)
+IsPersonButton.Font = Enum.Font.GothamBold
+IsPersonButton.TextSize = 12
+IsPersonButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+local IsPersonButtontroke = Instance.new("UIStroke", IsPersonButton)
+IsPersonButtontroke.Thickness = 1
+IsPersonButtontroke.Color = Color3.fromRGB(120, 120, 120)
+IsPersonButtontroke.Transparency = 0.3
+
 
 
 
@@ -745,6 +763,52 @@ end
 setupAllPlayers()
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(onCharacterAdded)
+end)
+
+local plr = game.Players.LocalPlayer
+local cam = workspace.CurrentCamera
+local isFirstPerson = false
+
+-- Hàm chuyển đổi góc nhìn
+local function updateCamera()
+    if isFirstPerson then
+        plr.CameraMode = Enum.CameraMode.LockFirstPerson
+        plr.CameraMinZoomDistance = 0.5
+        plr.CameraMaxZoomDistance = 0.5
+        button.Text = "👁‍🗨 Góc nhìn: 1st Person"
+    else
+        plr.CameraMode = Enum.CameraMode.Classic
+        plr.CameraMinZoomDistance = 5
+        plr.CameraMaxZoomDistance = 50
+        button.Text = "🧍 Góc nhìn: 3rd Person"
+    end
+end
+
+-- -- Gán sự kiện nút
+-- button.MouseButton1Click:Connect(function()
+--     isFirstPerson = not isFirstPerson
+--     updateCamera()
+-- end)
+local function toggleIsPerson()
+   isFirstPerson = not isFirstPerson
+    updateCamera()
+    IsPersonButton.BackgroundColor3 = isFirstPerson and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(120, 40, 40)
+end
+
+-- 🟢 Gán sự kiện cho nút Noclip
+IsPersonButton.MouseButton1Click:Connect(toggleIsPerson)
+
+-- Cập nhật camera ban đầu
+updateCamera()
+
+-- Đảm bảo camera không bị reset bởi game
+game:GetService("RunService").RenderStepped:Connect(function()
+    if cam.CameraType ~= Enum.CameraType.Custom then
+        cam.CameraType = Enum.CameraType.Custom
+    end
+    if cam.CameraSubject ~= plr.Character:FindFirstChild("Humanoid") then
+        cam.CameraSubject = plr.Character:FindFirstChild("Humanoid")
+    end
 end)
 
 
