@@ -22,7 +22,7 @@ ScreenGui.Parent = game.CoreGui
 
 -- 🟢 Khung chính (Nhỏ gọn hơn)
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 310, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
+MainFrame.Size = UDim2.new(0, 370, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
 MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BorderSizePixel = 2
@@ -97,7 +97,7 @@ FullbrightButtonstroke.Transparency = 0.3
 -- 🟢 Nút IsPerson
 IsPersonButton.Parent = MainFrame
 IsPersonButton.Size = UDim2.new(0, 60, 0, 40)
-IsPersonButton.Position = UDim2.new(0, 198, 0, 5)
+IsPersonButton.Position = UDim2.new(0, 259, 0, 5)
 IsPersonButton.Text = "📷\nCamera"
 IsPersonButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
 local IsPersonButtonCorner = Instance.new("UICorner", IsPersonButton)
