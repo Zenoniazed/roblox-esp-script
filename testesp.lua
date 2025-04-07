@@ -773,14 +773,12 @@ local isFirstPerson = false
 local function updateCamera()
     if isFirstPerson then
         plr.CameraMode = Enum.CameraMode.LockFirstPerson
-        plr.CameraMinZoomDistance = 0.5
-        plr.CameraMaxZoomDistance = 0.5
-        button.Text = "👁‍🗨 Góc nhìn: 1st Person"
+        plr.CameraMinZoomDistance = 0
+        plr.CameraMaxZoomDistance = 0
     else
         plr.CameraMode = Enum.CameraMode.Classic
-        plr.CameraMinZoomDistance = 5
+        plr.CameraMinZoomDistance = 0
         plr.CameraMaxZoomDistance = 50
-        button.Text = "🧍 Góc nhìn: 3rd Person"
     end
 end
 
