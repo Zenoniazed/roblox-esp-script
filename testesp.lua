@@ -22,7 +22,7 @@ ScreenGui.Parent = game.CoreGui
 
 -- 🟢 Khung chính (Nhỏ gọn hơn)
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 370, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
+MainFrame.Size = UDim2.new(0, 430, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
 MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BorderSizePixel = 2
@@ -811,5 +811,156 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
+-- Auto Pick
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+-- ✅ Danh sách vật phẩm và loại Remote
+local autoPickupItems = {
+    ["GoldBar"] = "StoreItem",
+    ["Coal"] = "StoreItem",
+    ["Bond"] = "C_ActivateObject",
+    ["Snake Oil"] = "PickUpTool",
+}
+
+-- ✅ Gắn tag cho các vật phẩm
+for _, obj in ipairs(workspace:GetDescendants()) do
+    if autoPickupItems[obj.Name] and not CollectionService:HasTag(obj, "AutoPickup") then
+        CollectionService:AddTag(obj, "AutoPickup")
+    end
+end
+workspace.DescendantAdded:Connect(function(obj)
+    if autoPickupItems[obj.Name] and not CollectionService:HasTag(obj, "AutoPickup") then
+        CollectionService:AddTag(obj, "AutoPickup")
+    end
+end)
+
+-- ✅ Remote gọi đến server
+local storeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("StoreItem", 5)
+
+local pickupRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Tool")
+    :WaitForChild("PickUpTool")
+
+local activateRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("RemotePromise")
+    :WaitForChild("Remotes"):WaitForChild("C_ActivateObject")
+-- ✅ Nút Auto Pickup
+local autoPickupButton = Instance.new("TextButton", MainFrame)
+autoPickupButton.Size = UDim2.new(0, 60, 0, 40)
+autoPickupButton.Position = UDim2.new(0, 320, 0, 5)
+autoPickupButton.Text = "💰\nPickup"
+autoPickupButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+autoPickupButton.TextColor3 = Color3.new(1, 1, 1)
+autoPickupButton.Font = Enum.Font.GothamBold
+autoPickupButton.TextSize = 12
+Instance.new("UICorner", autoPickupButton).CornerRadius = UDim.new(0, 10)
+
+-- ✅ Giao diện khung chọn item
+local autoPickupFrame = Instance.new("Frame", MainFrame)
+autoPickupFrame.Size = UDim2.new(0, 400, 0, 90)
+autoPickupFrame.Position = UDim2.new(0, 0, 0, 60)
+autoPickupFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+autoPickupFrame.Visible = false
+Instance.new("UICorner", autoPickupFrame).CornerRadius = UDim.new(0, 10)
+
+autoPickupButton.MouseButton1Click:Connect(function()
+    autoPickupFrame.Visible = not autoPickupFrame.Visible
+end)
+
+-- ✅ Danh mục và GUI chọn item
+local selectionTable = {}
+local categories = {
+    ["Vật phẩm"] = {"GoldBar", "Bond", "Coal"},
+    ["Vũ khí"] = {"SúngTrường", "SúngNgắn"},
+     ["Cấp cứu"] = {"Bandage", "Snake Oil","Loli"},
+}
+
+local colWidth, spacing, colIndex = 150, 15, 0
+for category, items in pairs(categories) do
+    local label = Instance.new("TextLabel", autoPickupFrame)
+    -- label.Size = UDim2.new(0, colWidth, 0, 0)
+    -- label.Position = UDim2.new(0, colIndex * (colWidth + spacing), 0, 5)
+    label.Text = " "
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1,1,1)
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 18
+    label.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+
+local corner = Instance.new("UICorner", label)
+corner.CornerRadius = UDim.new(0, 6)
 
 
+    for i, item in ipairs(items) do
+        local button = Instance.new("TextButton", autoPickupFrame)
+        button.Size = UDim2.new(0, 120, 0, 20)
+button.Position = UDim2.new(0, colIndex * 130 + 10, 0, 5+(i-1)* 25)
+button.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Font = Enum.Font.GothamBold
+button.TextSize = 14
+button.TextWrapped = true
+
+-- Bo góc
+local uicorner = Instance.new("UICorner", button)
+uicorner.CornerRadius = UDim.new(0, 6)
+
+-- Viền nhẹ
+local stroke = Instance.new("UIStroke", button)
+stroke.Thickness = 1
+stroke.Color = Color3.fromRGB(120, 120, 120)
+stroke.Transparency = 0.4
+
+        button.Text = "[ ] " .. item
+
+        button.MouseButton1Click:Connect(function()
+            selectionTable[item] = not selectionTable[item]
+            button.Text = (selectionTable[item] and "[X] " or "[ ] ") .. item
+        end)
+    end
+    colIndex += 1
+end
+
+-- ✅ Hàm lấy tọa độ object an toàn
+local function getPos(obj)
+    if obj:IsA("Model") then
+        return (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart"))
+            and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")).Position
+    elseif obj:IsA("BasePart") then
+        return obj.Position
+    end
+    return nil
+end
+
+-- ✅ Vòng lặp auto nhặt vật phẩm đã chọn
+local CHECK_RADIUS = 20
+local INTERVAL = 0.3
+
+task.spawn(function()
+    while true do
+        task.wait(INTERVAL)
+
+        for _, obj in ipairs(CollectionService:GetTagged("AutoPickup")) do
+            if selectionTable[obj.Name] then
+                local pos = getPos(obj)
+                if pos and (pos - hrp.Position).Magnitude <= CHECK_RADIUS then
+                    local remoteType = autoPickupItems[obj.Name]
+                    if remoteType == "StoreItem" then
+                        storeRemote:FireServer(obj)
+                    elseif remoteType == "C_ActivateObject" then
+                        activateRemote:FireServer(obj)
+                    elseif remoteType == "PickUpTool" then
+                        pickupRemote:FireServer(obj)
+                    end
+                end
+            end
+        end
+    end
+end)
