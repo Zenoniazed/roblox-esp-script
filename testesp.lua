@@ -871,7 +871,7 @@ Instance.new("UICorner", autoPickupButton).CornerRadius = UDim.new(0, 10)
 
 -- ✅ Giao diện khung chọn item
 local autoPickupFrame = Instance.new("Frame", MainFrame)
-autoPickupFrame.Size = UDim2.new(0, 400, 0, 90)
+autoPickupFrame.Size = UDim2.new(0, 400, 0, 190)
 autoPickupFrame.Position = UDim2.new(0, 0, 0, 60)
 autoPickupFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 autoPickupFrame.Visible = false
