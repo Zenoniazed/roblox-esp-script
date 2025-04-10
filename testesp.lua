@@ -22,7 +22,7 @@ ScreenGui.Parent = game.CoreGui
 
 -- 🟢 Khung chính (Nhỏ gọn hơn)
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 430, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
+MainFrame.Size = UDim2.new(0, 480, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
 MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BorderSizePixel = 2
@@ -828,7 +828,14 @@ local autoPickupItems = {
     ["GoldBar"] = "StoreItem",
     ["Coal"] = "StoreItem",
     ["Bond"] = "C_ActivateObject",
+    ["RifleAmmo"] = "C_ActivateObject",
+    ["ShotgunShells"] = "C_ActivateObject",
+    ["RevolverAmmo"] = "C_ActivateObject",
     ["Snake Oil"] = "PickUpTool",
+    ["Shotgun"] = "PickUpTool",
+    ["Rifle"] = "PickUpTool",
+    ["Revolver"] = "PickUpTool",
+    ["Bandage"] = "PickUpTool",
 }
 
 -- ✅ Gắn tag cho các vật phẩm
@@ -878,8 +885,8 @@ end)
 local selectionTable = {}
 local categories = {
     ["Vật phẩm"] = {"GoldBar", "Bond", "Coal"},
-    ["Vũ khí"] = {"SúngTrường", "SúngNgắn"},
-     ["Cấp cứu"] = {"Bandage", "Snake Oil","Loli"},
+    ["Vũ khí"] = {"Rifle", "Shotgun","Revolver","RifleAmmo","ShotgunShells","RevolverAmmo",},
+     ["Health"] = {"Bandage", "Snake Oil","Loli :)"},
 }
 
 local colWidth, spacing, colIndex = 150, 15, 0
@@ -963,4 +970,105 @@ task.spawn(function()
             end
         end
     end
+end)
+-- Auto Use
+local autoUseButton = Instance.new("TextButton", MainFrame)
+autoUseButton.Size = UDim2.new(0, 60, 0, 40)
+autoUseButton.Position = UDim2.new(0, 380, 0, 5)
+autoUseButton.Text = "🧪\nAuto Use"
+autoUseButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+autoUseButton.TextColor3 = Color3.new(1, 1, 1)
+autoUseButton.Font = Enum.Font.GothamBold
+autoUseButton.TextSize = 12
+Instance.new("UICorner", autoUseButton)
+
+local autoUseFrame = Instance.new("Frame", MainFrame)
+autoUseFrame.Size = UDim2.new(0, 200, 0, 100)
+autoUseFrame.Position = UDim2.new(0, 0, 0, 60)
+autoUseFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+autoUseFrame.Visible = false
+Instance.new("UICorner", autoUseFrame)
+
+autoUseButton.MouseButton1Click:Connect(function()
+	autoUseFrame.Visible = not autoUseFrame.Visible
+end)
+local autoUseConfig = {
+	["Snake Oil"] = { enabled = false, threshold = 40, lastUsed = 0, cooldown = 3 },
+	["Bandage"]   = { enabled = false, threshold = 30, lastUsed = 0, cooldown = 3 },
+}
+
+
+local y = 5
+for itemName, config in pairs(autoUseConfig) do
+	local check = Instance.new("TextButton", autoUseFrame)
+	check.Size = UDim2.new(0, 100, 0, 25)
+	check.Position = UDim2.new(0, 10, 0, y)
+	check.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+	check.TextColor3 = Color3.new(1,1,1)
+	check.Font = Enum.Font.GothamBold
+	check.TextSize = 12
+	check.Text = "[ ] " .. itemName
+	Instance.new("UICorner", check)
+
+	local input = Instance.new("TextBox", autoUseFrame)
+	input.Size = UDim2.new(0, 60, 0, 25)
+	input.Position = UDim2.new(0, 120, 0, y)
+	input.PlaceholderText = tostring(config.threshold)
+	input.Text = ""
+	input.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	input.TextColor3 = Color3.new(1,1,1)
+	input.Font = Enum.Font.Gotham
+	input.TextSize = 12
+	Instance.new("UICorner", input)
+
+	check.MouseButton1Click:Connect(function()
+		config.enabled = not config.enabled
+		check.Text = (config.enabled and "[X] " or "[ ] ") .. itemName
+	end)
+
+	input.FocusLost:Connect(function()
+		local val = tonumber(input.Text)
+		if val then config.threshold = val end
+	end)
+
+	y += 30
+end
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+
+local function tryAutoUse(itemName)
+	local containers = { player.Character, player:WaitForChild("Backpack") }
+	for _, c in ipairs(containers) do
+		local tool = c:FindFirstChild(itemName)
+		if tool and tool:FindFirstChild("Use") then
+			print("🧪 Auto dùng:", itemName)
+			tool.Use:FireServer(tool)
+			break
+		end
+	end
+end
+
+humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+	local hp = humanoid.Health
+	local now = tick()
+
+	for itemName, config in pairs(autoUseConfig) do
+		if config.enabled and hp <= config.threshold then
+			if now - config.lastUsed >= config.cooldown then
+				local containers = { player.Character, player:WaitForChild("Backpack") }
+				for _, c in ipairs(containers) do
+					local tool = c:FindFirstChild(itemName)
+					if tool and tool:FindFirstChild("Use") then
+						print("🧪 Auto dùng:", itemName)
+						tool.Use:FireServer(tool)
+						config.lastUsed = now
+						break
+					end
+				end
+			else
+				print("⏳ Đợi cooldown cho", itemName)
+			end
+		end
+	end
 end)
