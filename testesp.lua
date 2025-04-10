@@ -994,7 +994,7 @@ autoUseButton.MouseButton1Click:Connect(function()
 end)
 local autoUseConfig = {
 	["Snake Oil"] = { enabled = false, threshold = 40, lastUsed = 0, cooldown = 3 },
-	["Bandage"]   = { enabled = false, threshold = 30, lastUsed = 0, cooldown = 3 },
+	["Bandage"]   = { enabled = false, threshold = 30, lastUsed = 0, cooldown = 1 },
 }
 
 
