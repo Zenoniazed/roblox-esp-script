@@ -624,14 +624,14 @@ local function createBankerESP()
 
     -- Gắn ESP cho Banker có sẵn
     for _, banker in ipairs(workspace:WaitForChild("RuntimeEntities"):GetChildren()) do
-        if banker.Name == "Banker" then
+        if banker.Name == "Model_Banker" then
             updateESPForBanker(banker)
         end
     end
 
     -- Theo dõi Banker spawn mới
     workspace.RuntimeEntities.ChildAdded:Connect(function(child)
-        if child.Name == "Banker" then
+        if child.Name == "Model_Banker" then
             task.wait(0.3) -- Đợi Combo tồn tại
             updateESPForBanker(child)
         end
