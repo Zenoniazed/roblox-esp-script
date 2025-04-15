@@ -22,7 +22,7 @@ ScreenGui.Parent = game.CoreGui
 
 -- 🟢 Khung chính (Nhỏ gọn hơn)
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 480, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
+MainFrame.Size = UDim2.new(0, 540, 0, 50) -- 🟢 Tăng chiều cao để chứa Noclip
 MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BorderSizePixel = 2
@@ -110,7 +110,16 @@ IsPersonButtontroke.Thickness = 1
 IsPersonButtontroke.Color = Color3.fromRGB(120, 120, 120)
 IsPersonButtontroke.Transparency = 0.3
 
-
+-- 🟢 Nút Infinite Jump
+local infJumpButton = Instance.new("TextButton", MainFrame)
+infJumpButton.Size = UDim2.new(0, 60, 0, 40)
+infJumpButton.Position = UDim2.new(0, 440, 0, 5)
+infJumpButton.Text = "🕴️\nInfJump"
+infJumpButton.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+infJumpButton.TextColor3 = Color3.new(1, 1, 1)
+infJumpButton.Font = Enum.Font.GothamBold
+infJumpButton.TextSize = 12
+Instance.new("UICorner", infJumpButton)
 
 
 -- 🟢 Khung danh sách chọn
@@ -1071,4 +1080,27 @@ humanoid:GetPropertyChangedSignal("Health"):Connect(function()
 			end
 		end
 	end
+end)
+
+-- 🟢 Biến và chức năng Infinite Jump
+local infJumpEnabled = false
+local uis = game:GetService("UserInputService")
+local plr = game.Players.LocalPlayer
+local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+
+plr.CharacterAdded:Connect(function(char)
+    hum = char:WaitForChild("Humanoid")
+end)
+
+-- Bật/Tắt Infinite Jump
+infJumpButton.MouseButton1Click:Connect(function()
+    infJumpEnabled = not infJumpEnabled
+    infJumpButton.BackgroundColor3 = infJumpEnabled and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(120, 40, 40)
+end)
+
+-- Jump khi bật
+uis.JumpRequest:Connect(function()
+    if infJumpEnabled and hum then
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
 end)
