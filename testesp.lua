@@ -528,6 +528,8 @@ local CollectionService = game:GetService("CollectionService")
 -- 🟢 Danh sách màu ESP theo danh mục
 local espTargets = {
     ["GoldBar"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
+    ["GoldEgg"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
+     ["Goldegg"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
     ["Coal"] = { color = Color3.fromRGB(235, 121, 72), category = "Vật phẩm" },
     ["Bond"] = { color = Color3.fromRGB(246, 14, 76), category = "Vật phẩm" },
     ["Bandage"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
