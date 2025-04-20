@@ -1002,8 +1002,8 @@ autoUseButton.MouseButton1Click:Connect(function()
 	autoUseFrame.Visible = not autoUseFrame.Visible
 end)
 local autoUseConfig = {
-	["Snake Oil"] = { enabled = true, threshold = 30, lastUsed = 0, cooldown = 1 },
-	["Bandage"]   = { enabled = true, threshold = 55, lastUsed = 0, cooldown = 0.5 },
+	["Snake Oil"] = { enabled = false, threshold = 30, lastUsed = 0, cooldown = 1 },
+	["Bandage"]   = { enabled = false, threshold = 55, lastUsed = 0, cooldown = 0.5 },
 }
 
 
