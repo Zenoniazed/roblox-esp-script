@@ -300,7 +300,7 @@ local autoShootEnabled = false
 local mouse = game.Players.LocalPlayer:GetMouse()
 local enemiesList = {}
 local currentTarget = nil
-local maxAimbotDistance = 500
+local maxAimbotDistance = 700
 local aimbotFOVRadius = 50
 
 -- 🟢 GUI FOV
@@ -525,11 +525,9 @@ end)
 local CollectionService = game:GetService("CollectionService")
 
 -- 🟢 Danh sách màu ESP theo danh mục
--- 🟢 Danh sách màu ESP theo danh mục
 local espTargets = {
     ["GoldBar"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
-    ["GoldEgg"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
-     ["Goldegg"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
+    ["Golden Egg"] = { color = Color3.fromRGB(255, 238, 0), category = "Vật phẩm" },
     ["Coal"] = { color = Color3.fromRGB(235, 121, 72), category = "Vật phẩm" },
     ["Bond"] = { color = Color3.fromRGB(246, 14, 76), category = "Vật phẩm" },
     ["Bandage"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
@@ -593,7 +591,7 @@ local function createESP(obj, color)
     esp.StudsOffset = Vector3.new(0, 2.5, 0)
     esp.Adornee = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
     esp.AlwaysOnTop = true
-    esp.MaxDistance = 1000
+    esp.MaxDistance = 2000
 
     local text = Instance.new("TextLabel", esp)
     text.Size = UDim2.new(1, 0, 1, 0)
@@ -693,7 +691,7 @@ game:GetService("RunService").RenderStepped:Connect(function()
 
         local distance = (itemPosition - hrp.Position).Magnitude
 
-        if enabled and distance <= 1000 then
+        if enabled and distance <= 2000 then
             if not obj:FindFirstChild("ESP_Tag") then
                 createESP(obj, info.color)
             end
@@ -1004,8 +1002,8 @@ autoUseButton.MouseButton1Click:Connect(function()
 	autoUseFrame.Visible = not autoUseFrame.Visible
 end)
 local autoUseConfig = {
-	["Snake Oil"] = { enabled = false, threshold = 40, lastUsed = 0, cooldown = 3 },
-	["Bandage"]   = { enabled = false, threshold = 30, lastUsed = 0, cooldown = 1 },
+	["Snake Oil"] = { enabled = true, threshold = 30, lastUsed = 0, cooldown = 1 },
+	["Bandage"]   = { enabled = true, threshold = 55, lastUsed = 0, cooldown = 0.5 },
 }
 
 
