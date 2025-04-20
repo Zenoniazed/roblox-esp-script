@@ -533,13 +533,13 @@ local espTargets = {
     ["Bandage"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
     ["Snake Oil"] = { color = Color3.fromRGB(255, 153, 255), category = "Vật phẩm" },
 
-    ["Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
+    ["Model_Horse"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
     ["Wolf"] = { color = Color3.fromRGB(255, 255, 255), category = "Mob" },
     ["Unicorn"] = { color = Color3.fromRGB(205, 0, 255), category = "Mob" },
 
-    ["RifleOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
-    ["ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
-    ["RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
+    ["Model_RifleOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
+    ["Model_ShotgunOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
+    ["Model_RevolverOutlaw"] = { color = Color3.fromRGB(0, 213, 255), category = "Enemies bán được" },
 
     ["Model_Runner"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
     ["Model_Walker"] = { color = Color3.fromRGB(155, 103, 232), category = "Zombies" },
