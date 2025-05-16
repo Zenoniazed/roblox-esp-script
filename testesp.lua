@@ -865,8 +865,8 @@ local storeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Stor
 local pickupRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Tool")
     :WaitForChild("PickUpTool")
 
-local activateRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("RemotePromise")
-    :WaitForChild("Remotes"):WaitForChild("C_ActivateObject")
+local activateRemote = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Network"):WaitForChild("RemotePromise")
+    :WaitForChild("Remotes"):WaitForChild("C_ActivateObject")''
 -- ✅ Nút Auto Pickup
 local autoPickupButton = Instance.new("TextButton", MainFrame)
 autoPickupButton.Size = UDim2.new(0, 60, 0, 40)
