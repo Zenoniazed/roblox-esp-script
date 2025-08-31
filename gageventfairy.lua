@@ -140,7 +140,7 @@ local function getMyFarm()
     return nil
 end
 
--- 🍅 Thu hoạch tất cả offerings (cây 1 → cây 2 → cây 3)
+-- 🍅 Thu hoạch tất cả offerings (quét hết cây trong farm)
 local function collectByOffering()
     local farm = getMyFarm()
     if not farm then return end
@@ -159,53 +159,55 @@ local function collectByOffering()
             needCollect = true
             print("🔍 Đang tìm cây:", plantName, "| Cần thu:", need)
 
+            local collected = 0
+
+            -- ✅ Quét toàn bộ cây trong farm
             for _, plant in ipairs(plantsFolder:GetChildren()) do
                 if plant.Name == plantName then
                     local targets = {}
 
                     -- Trái glimmering
                     local fruitsFolder = plant:FindFirstChild("Fruits")
-                    if fruitsFolder and #fruitsFolder:GetChildren() > 0 then
+                    if fruitsFolder then
                         for _, fruit in ipairs(fruitsFolder:GetChildren()) do
                             if fruit:GetAttribute("Glimmering") == true then
                                 table.insert(targets, fruit)
                             end
                         end
-                    else
-                        -- Cây chính glimmering
-                        if plant:GetAttribute("Glimmering") == true then
-                            table.insert(targets, plant)
-                        end
                     end
 
-                    -- Thu hoạch đúng số lượng yêu cầu
-                    local collected = 0
+                    -- Cây chính glimmering (nếu cây ko có fruits)
+                    if plant:GetAttribute("Glimmering") == true then
+                        table.insert(targets, plant)
+                    end
+
+                    -- ✅ Thu hoạch trái/cây trong targets
                     for _, target in ipairs(targets) do
                         if collected >= need then break end
-
                         local success, err = pcall(function()
                             Collect:FireServer({ target })
                         end)
 
                         if success then
                             collected += 1
-                            print("✅ Đã thu:", target.Name)
+                            print("✅ Đã thu:", target.Name, "| Tổng thu:", collected .. "/" .. need)
                         else
                             warn("❌ Lỗi khi thu:", err)
                         end
 
-                        task.wait(1.2) -- delay nhỏ để server nhận kịp
+                        task.wait(1.2)
                     end
 
-                    -- ✅ xong cây này → qua cây tiếp theo
-                    break
+                    if collected >= need then
+                        break -- đủ số lượng thì ngừng tìm tiếp
+                    end
                 end
             end
         end
     end
 
     if needCollect then
-        updateOfferings() -- cập nhật 1 lần sau khi xử lý xong hết offerings
+        updateOfferings()
     end
 end
 
@@ -213,3 +215,4 @@ end
 while task.wait(3) do
     collectByOffering()
 end
+
