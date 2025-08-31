@@ -70,12 +70,15 @@ local btnCorner = Instance.new("UICorner")
 btnCorner.CornerRadius = UDim.new(0, 8)
 btnCorner.Parent = toggleButton
 
+local autoRunning = true
+local visible = true
 -- 🔁 Toggle hiển thị
 local visible = true
 toggleButton.MouseButton1Click:Connect(function()
     visible = not visible
     mainFrame.Visible = visible
     toggleButton.Text = visible and "Ẩn" or "Hiện"
+         autoRunning = visible
 end)
 
 -- 🔄 Cập nhật offerings từ WishFountain
@@ -248,6 +251,11 @@ end
 
 
 -- 🔁 Auto loop
-while task.wait(3) do
-    collectByOffering()
-end
+task.spawn(function()
+    while true do
+        if autoRunning then
+            collectByOffering()
+        end
+        task.wait(3)
+    end
+end)
