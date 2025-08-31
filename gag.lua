@@ -223,34 +223,30 @@ local function collectByOffering()
                             end
                         end
                     else
-                        -- 🍄 Cây chính (ví dụ: Mushroom, không có Fruits)
-                        totalChecked += 1
-                        local grow = plant:FindFirstChild("Grow")
-                        local age = grow and grow:FindFirstChild("Age")
-                        local maxAge = plant:GetAttribute("MaxAge")
-                        local glimmering = plant:GetAttribute("Glimmering")
-
-                        if not age or not maxAge then
-                            print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Thiếu Age hoặc MaxAge")
-                        elseif age.Value < maxAge then
-                            print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Chưa đủ tuổi")
-                        elseif not glimmering then
-                            print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Không có Glimmering")
-                        else
-                            print("✨ Thu hoạch cây chính:", plant.Name)
-                            local success, err = pcall(function()
-                                Collect:FireServer({ plant })
-                            end)
-
-                            if success then
-                                totalCollected += 1
-                                need -= 1
-                                print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
+                            -- Nếu cây không có Fruits thì check chính cây đó
+                            local target = plant.PrimaryPart or plant
+                            local glim = target:GetAttribute("Glimmering")
+                            local maxAge = target:GetAttribute("MaxAge")
+                            local grow = target:FindFirstChild("Grow")
+                            local ageValue = grow and grow:FindFirstChild("Age")
+                        
+                            if glim == true and ageValue and maxAge and ageValue.Value >= maxAge then
+                                print("✨ Cây chính có Glimmering và đủ tuổi, thử thu hoạch:", plant.Name)
+                                local success, err = pcall(function()
+                                    Collect:FireServer({ target })
+                                end)
+                                if success then
+                                    totalCollected += 1
+                                    need -= 1
+                                    print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
+                                else
+                                    warn("❌ Lỗi khi thu:", err)
+                                end
                             else
-                                warn("❌ Lỗi khi thu:", err)
+                                print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Không đạt điều kiện")
                             end
                         end
-                    end
+
 
                     if need <= 0 then 
                         break -- đủ cho offering này → thoát vòng lặp cây
