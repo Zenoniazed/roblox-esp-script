@@ -228,6 +228,7 @@ local function collectByOffering()
                                 totalCollected += 1
                                 need -= 1
                                 print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
+                                task.wait(1.2)
                             else
                                 warn("❌ Lỗi khi thu:", err)
                             end
