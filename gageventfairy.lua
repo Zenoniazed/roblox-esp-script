@@ -189,6 +189,7 @@ local function collectByOffering()
                          task.wait(3)
                         if collected >= (total - current) then break end
                     end
+                    updateOfferings()
                 end
             end
         end
@@ -200,5 +201,6 @@ end
 while task.wait(3) do
     collectByOffering()
 end
+
 
 
