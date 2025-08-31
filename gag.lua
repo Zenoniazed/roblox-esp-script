@@ -173,7 +173,6 @@ local function collectByOffering()
 
                     local fruitsFolder = plant:FindFirstChild("Fruits")
                     if fruitsFolder then
-                        -- 🌿 Cây có Fruits (Tomato, Watermelon, Grape, ...)
                         for _, fruit in ipairs(fruitsFolder:GetChildren()) do
                             totalChecked += 1
                             print("🔎 Kiểm tra trái:", fruit.Name)
@@ -210,8 +209,8 @@ local function collectByOffering()
                                     need -= 1
                                     print(string.format("✅ Đã thu %s | Còn cần: %d", fruit.Name, need))
                                     if need <= 0 then
-                                        print("🎉 Đã đủ số lượng cho Offering_"..i)
-                                        break -- đủ số lượng → thoát vòng lặp trái
+                                        print("🎉 Đã đủ số lượng cần thiết cho Offering_"..i)
+                                        break -- Thoát vòng lặp trái
                                     end
                                 else
                                     warn("❌ Lỗi khi thu:", err)
@@ -223,30 +222,23 @@ local function collectByOffering()
                             end
                         end
                     else
-                            -- Nếu cây không có Fruits thì check chính cây đó
-                            local target = plant.PrimaryPart or plant
-                            local glim = target:GetAttribute("Glimmering")
-                            local maxAge = target:GetAttribute("MaxAge")
-                            local grow = target:FindFirstChild("Grow")
-                            local ageValue = grow and grow:FindFirstChild("Age")
-                        
-                            if glim == true and ageValue and maxAge and ageValue.Value >= maxAge then
-                                print("✨ Cây chính có Glimmering và đủ tuổi, thử thu hoạch:", plant.Name)
-                                local success, err = pcall(function()
-                                    Collect:FireServer({ target })
-                                end)
-                                if success then
-                                    totalCollected += 1
-                                    need -= 1
-                                    print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
-                                else
-                                    warn("❌ Lỗi khi thu:", err)
-                                end
+                        -- Nếu cây không có Fruits thì check chính cây đó
+                        if plant:GetAttribute("Glimmering") == true then
+                            print("✨ Cây chính có Glimmering, thử thu hoạch:", plant.Name)
+                            local success, err = pcall(function()
+                                Collect:FireServer({ plant })
+                            end)
+                            if success then
+                                totalCollected += 1
+                                need -= 1
+                                print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
                             else
-                                print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Không đạt điều kiện")
+                                warn("❌ Lỗi khi thu:", err)
                             end
+                        else
+                            print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Không có Fruits và không có Glimmering")
                         end
-
+                    end
 
                     if need <= 0 then 
                         break -- đủ cho offering này → thoát vòng lặp cây
@@ -258,7 +250,7 @@ local function collectByOffering()
         end
     end
 
-    print(string.format("📊 Tổng kết vòng này: Đã kiểm tra %d đối tượng | Thu hoạch thành công %d", totalChecked, totalCollected))
+    print(string.format("📊 Tổng kết vòng này: Đã kiểm tra %d trái | Thu hoạch thành công %d trái", totalChecked, totalCollected))
 
     if needCollect then
         print("🔄 Cập nhật lại Offerings sau khi thu hoạch...")
@@ -271,9 +263,9 @@ end
 
 
 
-
 -- 🔁 Vòng lặp tự động
 while task.wait(3) do
     collectByOffering()
 end
+
 
