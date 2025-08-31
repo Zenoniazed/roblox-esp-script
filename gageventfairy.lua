@@ -58,7 +58,7 @@ end
 -- 🔘 Nút bật/tắt
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 100, 0, 35)
-toggleButton.Position = UDim2.new(0, 30, 0, 70)
+toggleButton.Position = UDim2.new(0, 50, 0, 70)
 toggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 toggleButton.Text = "Ẩn"
 toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -140,50 +140,14 @@ local function getMyFarm()
     return nil
 end
 
--- 📌 Hàm check trái đã "ổn định" chưa (Age không đổi nữa)
-local function isFruitStable(fruit)
-    local grow = fruit:FindFirstChild("Grow")
-    if not grow then return true end -- không có Grow thì coi như ổn định
-
-    local age = grow:FindFirstChild("Age")
-    if not age or not age:IsA("NumberValue") then return true end
-
-    local oldValue = age.Value
-    task.wait(0.5) -- chờ nửa giây xem Age có đổi không
-    return age.Value == oldValue
-end
-
--- 📌 Hàm lấy tất cả cây trong Plants_Physical (quét đệ quy)
-local function getAllPlants(plantsFolder)
-    local plants = {}
-    local function scan(folder)
-        for _, child in ipairs(folder:GetChildren()) do
-            if child:IsA("Model") and child:FindFirstChild("Fruits") then
-                table.insert(plants, child)
-            elseif child:IsA("Folder") or child:IsA("Model") then
-                scan(child) -- tiếp tục quét nếu có lồng
-            end
-        end
-    end
-    scan(plantsFolder)
-    return plants
-end
-
--- 🍅 Thu hoạch theo offerings
+-- 🍅 Thu hoạch tất cả offerings (cây 1 → cây 2 → cây 3)
 local function collectByOffering()
     local farm = getMyFarm()
-    if not farm then 
-        warn("⚠️ Không tìm thấy farm của bạn") 
-        return 
-    end
+    if not farm then return end
 
     local plantsFolder = farm:FindFirstChild("Important") and farm.Important:FindFirstChild("Plants_Physical")
-    if not plantsFolder then 
-        warn("⚠️ Không tìm thấy Plants_Physical trong farm") 
-        return 
-    end
+    if not plantsFolder then return end
 
-    local plants = getAllPlants(plantsFolder)
     local needCollect = false
 
     for i = 1, 3 do
@@ -195,26 +159,26 @@ local function collectByOffering()
             needCollect = true
             print("🔍 Đang tìm cây:", plantName, "| Cần thu:", need)
 
-            for _, plant in ipairs(plants) do
+            for _, plant in ipairs(plantsFolder:GetChildren()) do
                 if plant.Name == plantName then
                     local targets = {}
 
-                    -- Ưu tiên trái glimmering ổn định
+                    -- Trái glimmering
                     local fruitsFolder = plant:FindFirstChild("Fruits")
-                    if fruitsFolder then
+                    if fruitsFolder and #fruitsFolder:GetChildren() > 0 then
                         for _, fruit in ipairs(fruitsFolder:GetChildren()) do
-                            if fruit:GetAttribute("Glimmering") == true and isFruitStable(fruit) then
+                            if fruit:GetAttribute("Glimmering") == true then
                                 table.insert(targets, fruit)
                             end
                         end
+                    else
+                        -- Cây chính glimmering
+                        if plant:GetAttribute("Glimmering") == true then
+                            table.insert(targets, plant)
+                        end
                     end
 
-                    -- Nếu không có trái nào ổn định, thử thu hoạch cây chính
-                    if #targets == 0 and plant:GetAttribute("Glimmering") == true then
-                        table.insert(targets, plant)
-                    end
-
-                    -- Thu hoạch đúng số lượng cần
+                    -- Thu hoạch đúng số lượng yêu cầu
                     local collected = 0
                     for _, target in ipairs(targets) do
                         if collected >= need then break end
@@ -233,21 +197,19 @@ local function collectByOffering()
                         task.wait(1.2) -- delay nhỏ để server nhận kịp
                     end
 
-                    break -- xong cây này thì qua cây tiếp theo
+                    -- ✅ xong cây này → qua cây tiếp theo
+                    break
                 end
             end
         end
     end
 
     if needCollect then
-        updateOfferings()
+        updateOfferings() -- cập nhật 1 lần sau khi xử lý xong hết offerings
     end
 end
-
-
 
 -- 🔁 Vòng lặp tự động
 while task.wait(3) do
     collectByOffering()
 end
-
