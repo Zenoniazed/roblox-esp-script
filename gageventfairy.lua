@@ -153,6 +153,22 @@ local function isFruitStable(fruit)
     return age.Value == oldValue
 end
 
+-- 📌 Hàm lấy tất cả cây trong Plants_Physical (quét đệ quy)
+local function getAllPlants(plantsFolder)
+    local plants = {}
+    local function scan(folder)
+        for _, child in ipairs(folder:GetChildren()) do
+            if child:IsA("Model") and child:FindFirstChild("Fruits") then
+                table.insert(plants, child)
+            elseif child:IsA("Folder") or child:IsA("Model") then
+                scan(child) -- tiếp tục quét nếu có lồng
+            end
+        end
+    end
+    scan(plantsFolder)
+    return plants
+end
+
 -- 🍅 Thu hoạch theo offerings
 local function collectByOffering()
     local farm = getMyFarm()
@@ -167,6 +183,7 @@ local function collectByOffering()
         return 
     end
 
+    local plants = getAllPlants(plantsFolder)
     local needCollect = false
 
     for i = 1, 3 do
@@ -178,7 +195,7 @@ local function collectByOffering()
             needCollect = true
             print("🔍 Đang tìm cây:", plantName, "| Cần thu:", need)
 
-            for _, plant in ipairs(plantsFolder:GetChildren()) do
+            for _, plant in ipairs(plants) do
                 if plant.Name == plantName then
                     local targets = {}
 
@@ -216,8 +233,7 @@ local function collectByOffering()
                         task.wait(1.2) -- delay nhỏ để server nhận kịp
                     end
 
-                    -- Xong cây này thì qua cây tiếp theo
-                    break
+                    break -- xong cây này thì qua cây tiếp theo
                 end
             end
         end
@@ -229,7 +245,9 @@ local function collectByOffering()
 end
 
 
+
 -- 🔁 Vòng lặp tự động
 while task.wait(3) do
     collectByOffering()
 end
+
