@@ -121,7 +121,7 @@ local Collect = ReplicatedStorage.GameEvents.Crops.Collect
 local function parseLabelText(text)
     local current, total, rawName = string.match(text, "^(%d+)/(%d+)%s+(.+)$")
     if current and total and rawName then
-        local cleanName = string.gsub(rawName, "^Glimmering%s+", "")
+        local cleanName = string.gsub(rawName, "^Glimmering%s+", "") -- bỏ chữ Glimmering trong label
         return cleanName, tonumber(current), tonumber(total)
     end
     return nil
@@ -140,7 +140,7 @@ local function getMyFarm()
     return nil
 end
 
--- 🍅 Thu hoạch tất cả offerings (quét hết cây trong farm)
+-- 🍅 Thu hoạch offerings (chỉ Glimmering)
 local function collectByOffering()
     local farm = getMyFarm()
     if not farm then return end
@@ -148,66 +148,69 @@ local function collectByOffering()
     local plantsFolder = farm:FindFirstChild("Important") and farm.Important:FindFirstChild("Plants_Physical")
     if not plantsFolder then return end
 
-    local needCollect = false
-
     for i = 1, 3 do
         local labelText = labels[i].Text
         local plantName, current, total = parseLabelText(labelText)
 
         if plantName and current < total then
             local need = total - current
-            needCollect = true
-            print("🔍 Đang tìm cây:", plantName, "| Cần thu:", need)
-
             local collected = 0
 
-            -- ✅ Quét toàn bộ cây trong farm
-            for _, plant in ipairs(plantsFolder:GetChildren()) do
-                if plant.Name == plantName then
-                    local targets = {}
+            print("🔍 Đang tìm cây:", plantName, "| Cần thu:", need)
 
-                    -- Trái glimmering
-                    local fruitsFolder = plant:FindFirstChild("Fruits")
-                    if fruitsFolder then
-                        for _, fruit in ipairs(fruitsFolder:GetChildren()) do
-                            if fruit:GetAttribute("Glimmering") == true then
-                                table.insert(targets, fruit)
+            -- ✅ Quét liên tục cho đến khi đủ hoặc hết Glimmering
+            while collected < need do
+                local foundAny = false
+
+                for _, plant in ipairs(plantsFolder:GetChildren()) do
+                    if plant.Name == plantName then
+                        -- ✅ Quét trái Glimmering
+                        local fruitsFolder = plant:FindFirstChild("Fruits")
+                        if fruitsFolder then
+                            for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                                if collected >= need then break end
+                                if fruit:GetAttribute("Glimmering") == true then
+                                    foundAny = true
+                                    local success, err = pcall(function()
+                                        Collect:FireServer(fruit)
+                                    end)
+                                    if success then
+                                        collected += 1
+                                        print("✅ Đã thu:", fruit.Name, "| Tổng thu:", collected .. "/" .. need)
+                                    else
+                                        warn("❌ Lỗi khi thu:", err)
+                                    end
+                                    task.wait(0.3)
+                                end
                             end
                         end
-                    end
 
-                    -- Cây chính glimmering (nếu cây ko có fruits)
-                    if plant:GetAttribute("Glimmering") == true then
-                        table.insert(targets, plant)
-                    end
-
-                    -- ✅ Thu hoạch trái/cây trong targets
-                    for _, target in ipairs(targets) do
-                        if collected >= need then break end
-                        local success, err = pcall(function()
-                            Collect:FireServer({ target })
-                        end)
-
-                        if success then
-                            collected += 1
-                            print("✅ Đã thu:", target.Name, "| Tổng thu:", collected .. "/" .. need)
-                        else
-                            warn("❌ Lỗi khi thu:", err)
+                        -- ✅ Nếu cả cây có Glimmering
+                        if collected < need and plant:GetAttribute("Glimmering") == true then
+                            foundAny = true
+                            local success, err = pcall(function()
+                                Collect:FireServer(plant)
+                            end)
+                            if success then
+                                collected += 1
+                                print("✅ Đã thu cây:", plant.Name, "| Tổng thu:", collected .. "/" .. need)
+                            else
+                                warn("❌ Lỗi khi thu cây:", err)
+                            end
+                            task.wait(0.3)
                         end
-
-                        task.wait(1.2)
-                    end
-
-                    if collected >= need then
-                        break -- đủ số lượng thì ngừng tìm tiếp
                     end
                 end
-            end
-        end
-    end
 
-    if needCollect then
-        updateOfferings()
+                -- ❌ Nếu không tìm thấy gì nữa thì dừng
+                if not foundAny then
+                    print("⛔ Không còn Glimmering cho:", plantName)
+                    break
+                end
+            end
+
+            updateOfferings()
+        end
     end
 end
 
@@ -215,4 +218,3 @@ end
 while task.wait(3) do
     collectByOffering()
 end
-
