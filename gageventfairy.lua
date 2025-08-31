@@ -186,9 +186,8 @@ local function collectByOffering()
                         else
                             warn("❌ Lỗi khi thu:", err)
                         end
+                         task.wait(3)
                         if collected >= (total - current) then break end
-                        -- ⏳ Delay 3 giây giữa mỗi lần thu
-                        task.wait(2)
                     end
                 end
             end
@@ -201,4 +200,5 @@ end
 while task.wait(3) do
     collectByOffering()
 end
+
 
