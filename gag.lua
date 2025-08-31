@@ -200,14 +200,8 @@ local function collectByOffering()
                         -- ✅ Fix: Nếu cây không có Fruits (như Mushroom)
                         if plant:GetAttribute("Glimmering") == true then
                             print("✨ Cây chính có Glimmering, thử thu hoạch:", plant.Name)
-
-                            local target = plant
-                            if plant:IsA("Model") then
-                                target = plant.PrimaryPart or plant:FindFirstChildWhichIsA("BasePart") or plant
-                            end
-
                             local success, err = pcall(function()
-                                Collect:FireServer({ target })
+                                Collect:FireServer({ plant }) -- 🚀 gửi nguyên Model (đã test thành công)
                             end)
 
                             if success then
