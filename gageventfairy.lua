@@ -58,7 +58,7 @@ end
 -- 🔘 Nút bật/tắt
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 100, 0, 35)
-toggleButton.Position = UDim2.new(0.5, -50, 1, -40)
+toggleButton.Position = UDim2.new(0, 30, 0, 70)
 toggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 toggleButton.Text = "Ẩn"
 toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -140,20 +140,31 @@ local function getMyFarm()
     return nil
 end
 
--- 📌 Hàm check trái đã "ổn định" chưa (Age không đổi nữa)
+-- 📌 Hàm check trái đã "ổn định" chưa (Age không đổi trong 0.1s)
 local function isFruitStable(fruit)
     local grow = fruit:FindFirstChild("Grow")
-    if not grow then return true end -- không có Grow thì coi như ổn định
+    if not grow then return true end
 
     local age = grow:FindFirstChild("Age")
     if not age or not age:IsA("NumberValue") then return true end
 
     local oldValue = age.Value
-    task.wait(1) -- chờ nửa giây xem Age có đổi không
-    return age.Value == oldValue
+    local changed = false
+
+    local conn
+    conn = age.Changed:Connect(function(newVal)
+        if newVal ~= oldValue then
+            changed = true
+        end
+    end)
+
+    task.wait(0.1) -- chỉ chờ rất ngắn
+    conn:Disconnect()
+
+    return not changed
 end
 
--- 🍅 Thu hoạch theo offerings
+-- 🍅 Thu hoạch theo offerings (dùng check nhanh)
 local function collectByOffering()
     local farm = getMyFarm()
     if not farm then 
@@ -232,4 +243,5 @@ end
 while task.wait(3) do
     collectByOffering()
 end
+
 
