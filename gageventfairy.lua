@@ -158,7 +158,7 @@ local function isFruitStable(fruit)
         end
     end)
 
-    task.wait(0.1) -- chỉ chờ rất ngắn
+    task.wait(0.5) -- chỉ chờ rất ngắn
     conn:Disconnect()
 
     return not changed
@@ -243,5 +243,6 @@ end
 while task.wait(3) do
     collectByOffering()
 end
+
 
 
