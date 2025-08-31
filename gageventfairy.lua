@@ -140,69 +140,30 @@ local function getMyFarm()
     return nil
 end
 
--- 🧽 Chuẩn hoá tên để so khớp ổn định
-local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
-local function normalizeName(s)
-    s = string.lower(trim(s or ""))
-    s = s:gsub("^glimmering%s+", "")      -- phòng trường hợp còn sót
-    s = s:gsub("%s+", "")                  -- bỏ khoảng trắng
-    s = s:gsub("[_%-%.%(%)]", "")          -- bỏ _ - . ( )
-    s = s:gsub("plant$", "")               -- bỏ đuôi 'plant' nếu có
-    return s
-end
-
--- 🔎 Tìm model cây theo tên (đệ quy + chấm điểm)
-local function findPlantModel(plantsFolder, plantName)
-    if not plantsFolder or not plantName then return nil end
-    local wanted = normalizeName(plantName)
-    local best, bestScore = nil, 0
-
-    for _, inst in ipairs(plantsFolder:GetDescendants()) do
-        if inst:IsA("Model") then
-            local n = normalizeName(inst.Name)
-            if n:find(wanted, 1, true) then
-                local score = 1
-                if n == wanted then score = score + 3 end            -- exact
-                if n:sub(1, #wanted) == wanted then score = score + 2 end -- startswith
-                if inst:FindFirstChild("Fruits") then score = score + 1 end
-                if inst:GetAttribute("Glimmering") == true then score = score + 1 end
-                if score > bestScore then
-                    best, bestScore = inst, score
-                end
-            end
-        end
-    end
-    return best
-end
-
--- ⚡ Check trái ổn định (Age không đổi ~0.1s) bằng sự kiện
+-- 📌 Hàm check trái đã "ổn định" chưa (Age không đổi nữa)
 local function isFruitStable(fruit)
-    local grow = fruit and fruit:FindFirstChild("Grow")
-    if not grow then return true end
+    local grow = fruit:FindFirstChild("Grow")
+    if not grow then return true end -- không có Grow thì coi như ổn định
+
     local age = grow:FindFirstChild("Age")
     if not age or not age:IsA("NumberValue") then return true end
 
     local oldValue = age.Value
-    local changed = false
-    local conn = age.Changed:Connect(function(newVal)
-        if newVal ~= oldValue then changed = true end
-    end)
-    task.wait(0.1)
-    conn:Disconnect()
-    return not changed
+    task.wait(0.5) -- chờ nửa giây xem Age có đổi không
+    return age.Value == oldValue
 end
 
--- 🍅 Thu hoạch theo offerings (đã fix tìm cây)
+-- 🍅 Thu hoạch theo offerings
 local function collectByOffering()
     local farm = getMyFarm()
     if not farm then 
-        warn("⚠️ Không tìm thấy farm của bạn")
+        warn("⚠️ Không tìm thấy farm của bạn") 
         return 
     end
 
     local plantsFolder = farm:FindFirstChild("Important") and farm.Important:FindFirstChild("Plants_Physical")
     if not plantsFolder then 
-        warn("⚠️ Không tìm thấy Plants_Physical trong farm")
+        warn("⚠️ Không tìm thấy Plants_Physical trong farm") 
         return 
     end
 
@@ -215,54 +176,48 @@ local function collectByOffering()
         if plantName and current < total then
             local need = total - current
             needCollect = true
-            print(("🔍 Đang tìm cây: %s | Cần thu: %d"):format(plantName, need))
+            print("🔍 Đang tìm cây:", plantName, "| Cần thu:", need)
 
-            -- 👉 Dùng finder mới
-            local plant = findPlantModel(plantsFolder, plantName)
-            if not plant then
-                warn(("❌ Không tìm thấy cây phù hợp cho '%s' trong Plants_Physical."):format(plantName))
-            else
-                print(("🌱 Match: %s (path: %s)"):format(plant.Name, plant:GetFullName()))
-                local targets = {}
+            for _, plant in ipairs(plantsFolder:GetChildren()) do
+                if plant.Name == plantName then
+                    local targets = {}
 
-                -- Ưu tiên trái glimmering ổn định
-                local fruitsFolder = plant:FindFirstChild("Fruits")
-                if fruitsFolder then
-                    for _, fruit in ipairs(fruitsFolder:GetChildren()) do
-                        if fruit:GetAttribute("Glimmering") == true and isFruitStable(fruit) then
-                            table.insert(targets, fruit)
+                    -- Ưu tiên trái glimmering ổn định
+                    local fruitsFolder = plant:FindFirstChild("Fruits")
+                    if fruitsFolder then
+                        for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                            if fruit:GetAttribute("Glimmering") == true and isFruitStable(fruit) then
+                                table.insert(targets, fruit)
+                            end
                         end
                     end
-                end
 
-                -- Nếu không có trái ổn định, thử cây chính glimmering
-                if #targets == 0 and plant:GetAttribute("Glimmering") == true then
-                    table.insert(targets, plant)
-                end
+                    -- Nếu không có trái nào ổn định, thử thu hoạch cây chính
+                    if #targets == 0 and plant:GetAttribute("Glimmering") == true then
+                        table.insert(targets, plant)
+                    end
 
-                -- Thu hoạch đúng số lượng cần
-                local collected = 0
-                for _, target in ipairs(targets) do
-                    if collected >= need then break end
+                    -- Thu hoạch đúng số lượng cần
+                    local collected = 0
+                    for _, target in ipairs(targets) do
+                        if collected >= need then break end
 
-                    -- Thử gửi trực tiếp; nếu fail thử dạng table
-                    local ok, err = pcall(function()
-                        Collect:FireServer(target)
-                    end)
-                    if not ok then
-                        ok, err = pcall(function()
+                        local success, err = pcall(function()
                             Collect:FireServer({ target })
                         end)
+
+                        if success then
+                            collected += 1
+                            print("✅ Đã thu:", target.Name)
+                        else
+                            warn("❌ Lỗi khi thu:", err)
+                        end
+
+                        task.wait(1.2) -- delay nhỏ để server nhận kịp
                     end
 
-                    if ok then
-                        collected += 1
-                        print("✅ Đã thu:", target.Name)
-                    else
-                        warn("❌ Lỗi khi thu:", err)
-                    end
-
-                    task.wait(1.0) -- delay nhỏ để server nhận kịp
+                    -- Xong cây này thì qua cây tiếp theo
+                    break
                 end
             end
         end
@@ -274,13 +229,7 @@ local function collectByOffering()
 end
 
 
-
 -- 🔁 Vòng lặp tự động
 while task.wait(3) do
     collectByOffering()
 end
-
-
-
-
-
