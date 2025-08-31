@@ -170,9 +170,27 @@ local function collectByOffering()
                 if plant.Name == plantName then
                     print("🌱 Đang xử lý cây:", plant.Name)
 
-                    local fruitsFolder = plant:FindFirstChild("Fruits")
-                    if fruitsFolder then
-                        for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                    if plant.Name == "Mushroom" then
+                        -- 🍄 Xử lý riêng Mushroom
+                        if plant:GetAttribute("Glimmering") == true then
+                            print("✨ Thu hoạch Mushroom:", plant.Name)
+                            local success, err = pcall(function()
+                                Collect:FireServer({ plant })
+                            end)
+                            if success then
+                                totalCollected += 1
+                                need -= 1
+                                print(string.format("✅ Đã thu Mushroom | Còn cần: %d", need))
+                            else
+                                warn("❌ Lỗi khi thu Mushroom:", err)
+                            end
+                        else
+                            print("⏭️ Bỏ qua Mushroom:", plant.Name, "| Lý do: Không có Glimmering")
+                        end
+
+                    elseif plant:FindFirstChild("Fruits") then
+                        -- 🍎 Cây có Fruits → duyệt từng quả
+                        for _, fruit in ipairs(plant.Fruits:GetChildren()) do
                             totalChecked += 1
                             local glimmering = fruit:GetAttribute("Glimmering")
                             local maxAge = fruit:GetAttribute("MaxAge")
@@ -184,26 +202,25 @@ local function collectByOffering()
                                 local success, err = pcall(function()
                                     Collect:FireServer({ fruit })
                                 end)
-
                                 if success then
                                     totalCollected += 1
                                     need -= 1
+                                    print(string.format("✅ Đã thu trái %s | Còn cần: %d", fruit.Name, need))
                                     if need <= 0 then break end
                                 else
                                     warn("❌ Lỗi khi thu:", err)
                                 end
-
                                 task.wait(1.2)
                             end
                         end
-                    else
-                        -- ✅ Fix: Nếu cây không có Fruits (như Mushroom)
-                        if plant:GetAttribute("Glimmering") == true then
-                            print("✨ Cây chính có Glimmering, thử thu hoạch:", plant.Name)
-                            local success, err = pcall(function()
-                                Collect:FireServer({ plant }) -- 🚀 gửi nguyên Model (đã test thành công)
-                            end)
 
+                    else
+                        -- 🌿 Cây không có Fruits (không phải Mushroom)
+                        if plant:GetAttribute("Glimmering") == true then
+                            print("✨ Thu hoạch cây chính:", plant.Name)
+                            local success, err = pcall(function()
+                                Collect:FireServer({ plant })
+                            end)
                             if success then
                                 totalCollected += 1
                                 need -= 1
@@ -212,7 +229,7 @@ local function collectByOffering()
                                 warn("❌ Lỗi khi thu:", err)
                             end
                         else
-                            print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Không có Glimmering")
+                            print("⏭️ Bỏ qua cây:", plant.Name, "| Lý do: Không có Glimmering")
                         end
                     end
 
@@ -222,12 +239,13 @@ local function collectByOffering()
         end
     end
 
-    print(string.format("📊 Tổng kết vòng này: Đã kiểm tra %d trái | Thu hoạch thành công %d trái", totalChecked, totalCollected))
+    print(string.format("📊 Tổng kết vòng này: Đã kiểm tra %d trái | Thu hoạch thành công %d", totalChecked, totalCollected))
 
     if needCollect then
         updateOfferings()
     end
 end
+
 
 -- 🔁 Auto loop
 while task.wait(3) do
