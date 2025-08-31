@@ -222,23 +222,23 @@ local function collectByOffering()
                             end
                         end
                     else
-                        -- Nếu cây không có Fruits thì check chính cây đó
-                        if plant:GetAttribute("Glimmering") == true then
-                            print("✨ Cây chính có Glimmering, thử thu hoạch:", plant.Name)
-                            local success, err = pcall(function()
-                                Collect:FireServer({ plant })
-                            end)
-                            if success then
-                                totalCollected += 1
-                                need -= 1
-                                print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
+                            -- Nếu cây không có Fruits thì check chính cây đó
+                            if plant:GetAttribute("Glimmering") == true then
+                                print("✨ Cây chính có Glimmering, thử thu hoạch:", plant.Name)
+                                local success, err = pcall(function()
+                                    Collect:FireServer({ plant })
+                                end)
+                                if success then
+                                    totalCollected += 1
+                                    need -= 1
+                                    print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
+                                else
+                                    warn("❌ Lỗi khi thu:", err)
+                                end
                             else
-                                warn("❌ Lỗi khi thu:", err)
+                                print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Không có Glimmering")
                             end
-                        else
-                            print("⏭️ Bỏ qua cây chính:", plant.Name, "| Lý do: Không có Fruits và không có Glimmering")
                         end
-                    end
 
                     if need <= 0 then 
                         break -- đủ cho offering này → thoát vòng lặp cây
