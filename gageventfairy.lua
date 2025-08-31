@@ -140,31 +140,20 @@ local function getMyFarm()
     return nil
 end
 
--- 📌 Hàm check trái đã "ổn định" chưa (Age không đổi trong 0.1s)
+-- 📌 Hàm check trái đã "ổn định" chưa (Age không đổi nữa)
 local function isFruitStable(fruit)
     local grow = fruit:FindFirstChild("Grow")
-    if not grow then return true end
+    if not grow then return true end -- không có Grow thì coi như ổn định
 
     local age = grow:FindFirstChild("Age")
     if not age or not age:IsA("NumberValue") then return true end
 
     local oldValue = age.Value
-    local changed = false
-
-    local conn
-    conn = age.Changed:Connect(function(newVal)
-        if newVal ~= oldValue then
-            changed = true
-        end
-    end)
-
-    task.wait(0.5) -- chỉ chờ rất ngắn
-    conn:Disconnect()
-
-    return not changed
+    task.wait(0.5) -- chờ nửa giây xem Age có đổi không
+    return age.Value == oldValue
 end
 
--- 🍅 Thu hoạch theo offerings (dùng check nhanh)
+-- 🍅 Thu hoạch theo offerings
 local function collectByOffering()
     local farm = getMyFarm()
     if not farm then 
@@ -239,10 +228,12 @@ local function collectByOffering()
     end
 end
 
+
 -- 🔁 Vòng lặp tự động
 while task.wait(3) do
     collectByOffering()
 end
+
 
 
 
