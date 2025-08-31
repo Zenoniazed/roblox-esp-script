@@ -210,7 +210,7 @@ local function collectByOffering()
                                     print(string.format("✅ Đã thu %s | Còn cần: %d", fruit.Name, need))
                                     if need <= 0 then
                                         print("🎉 Đã đủ số lượng cần thiết cho Offering_"..i)
-                                        break
+                                        break -- Thoát vòng lặp trái
                                     end
                                 else
                                     warn("❌ Lỗi khi thu:", err)
@@ -240,7 +240,9 @@ local function collectByOffering()
                         end
                     end
 
-                    if need <= 0 then break end -- đủ cho offering này → qua offering tiếp theo
+                    if need <= 0 then 
+                        break -- đủ cho offering này → thoát vòng lặp cây
+                    end
                 end
             end
         else
@@ -257,6 +259,7 @@ local function collectByOffering()
         print("✅ Không có gì cần thu hoạch trong lượt này")
     end
 end
+
 
 
 
