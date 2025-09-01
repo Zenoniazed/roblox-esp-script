@@ -167,28 +167,28 @@ local function collectByOffering()
         if plantName and current < total then
             local need = total - current
             needCollect = true
-            print(string.format("🔍 Đang xử lý Offering_%d: %s | Đã có: %d/%d | Cần thêm: %d", i, plantName, current, total, need))
+            --print(string.format("🔍 Đang xử lý Offering_%d: %s | Đã có: %d/%d | Cần thêm: %d", i, plantName, current, total, need))
 
             for _, plant in ipairs(plantsFolder:GetChildren()) do
                 if plant.Name == plantName then
-                    print("🌱 Đang xử lý cây:", plant.Name)
+                    --print("🌱 Đang xử lý cây:", plant.Name)
 
                     if plant.Name == "Mushroom" then
                         -- 🍄 Xử lý riêng Mushroom
                         if plant:GetAttribute("Glimmering") == true then
-                            print("✨ Thu hoạch Mushroom:", plant.Name)
+                            --print("✨ Thu hoạch Mushroom:", plant.Name)
                             local success, err = pcall(function()
                                 Collect:FireServer({ plant })
                             end)
                             if success then
                                 totalCollected += 1
                                 need -= 1
-                                print(string.format("✅ Đã thu Mushroom | Còn cần: %d", need))
+                                --print(string.format("✅ Đã thu Mushroom | Còn cần: %d", need))
                             else
                                 warn("❌ Lỗi khi thu Mushroom:", err)
                             end
                         else
-                            print("⏭️ Bỏ qua Mushroom:", plant.Name, "| Lý do: Không có Glimmering")
+                            --print("⏭️ Bỏ qua Mushroom:", plant.Name, "| Lý do: Không có Glimmering")
                         end
 
                     elseif plant:FindFirstChild("Fruits") then
@@ -201,39 +201,40 @@ local function collectByOffering()
                             local ageValue = growFolder and growFolder:FindFirstChild("Age")
 
                             if ageValue and maxAge and glimmering and ageValue.Value >= maxAge then
-                                print("✨ Thu hoạch trái:", fruit.Name)
+                                --print("✨ Thu hoạch trái:", fruit.Name)
                                 local success, err = pcall(function()
                                     Collect:FireServer({ fruit })
                                 end)
                                 if success then
                                     totalCollected += 1
                                     need -= 1
-                                    print(string.format("✅ Đã thu trái %s | Còn cần: %d", fruit.Name, need))
+                                    --print(string.format("✅ Đã thu trái %s | Còn cần: %d", fruit.Name, need))
                                     if need <= 0 then break end
                                 else
                                     warn("❌ Lỗi khi thu:", err)
                                 end
-                                task.wait(1.2)
+                                task.wait(1.5)
                             end
                         end
 
                     else
                         -- 🌿 Cây không có Fruits (không phải Mushroom)
                         if plant:GetAttribute("Glimmering") == true then
-                            print("✨ Thu hoạch cây chính:", plant.Name)
+                            --print("✨ Thu hoạch cây chính:", plant.Name)
                             local success, err = pcall(function()
                                 Collect:FireServer({ plant })
                             end)
                             if success then
                                 totalCollected += 1
                                 need -= 1
-                                print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
-                                task.wait(1.2)
+                                --print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
+                                
                             else
                                 warn("❌ Lỗi khi thu:", err)
                             end
+                            task.wait(1.5)
                         else
-                            print("⏭️ Bỏ qua cây:", plant.Name, "| Lý do: Không có Glimmering")
+                            --print("⏭️ Bỏ qua cây:", plant.Name, "| Lý do: Không có Glimmering")
                         end
                     end
 
@@ -243,7 +244,7 @@ local function collectByOffering()
         end
     end
 
-    print(string.format("📊 Tổng kết vòng này: Đã kiểm tra %d trái | Thu hoạch thành công %d", totalChecked, totalCollected))
+    --print(string.format("📊 Tổng kết vòng này: Đã kiểm tra %d trái | Thu hoạch thành công %d", totalChecked, totalCollected))
 
     if needCollect then
         updateOfferings()
@@ -257,6 +258,6 @@ task.spawn(function()
         if autoRunning then
             collectByOffering()
         end
-        task.wait(3)
+        task.wait(5)
     end
 end)
