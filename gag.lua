@@ -179,6 +179,7 @@ local function collectByOffering()
                             --print("✨ Thu hoạch Mushroom:", plant.Name)
                             local success, err = pcall(function()
                                 Collect:FireServer({ plant })
+                                task.wait(0.7)
                             end)
                             if success then
                                 totalCollected += 1
@@ -204,6 +205,7 @@ local function collectByOffering()
                                 --print("✨ Thu hoạch trái:", fruit.Name)
                                 local success, err = pcall(function()
                                     Collect:FireServer({ fruit })
+                                    task.wait(0.7)
                                 end)
                                 if success then
                                     totalCollected += 1
@@ -213,7 +215,7 @@ local function collectByOffering()
                                 else
                                     warn("❌ Lỗi khi thu:", err)
                                 end
-                                task.wait(1.5)
+                                task.wait(1.2)
                             end
                         end
 
@@ -223,6 +225,7 @@ local function collectByOffering()
                             --print("✨ Thu hoạch cây chính:", plant.Name)
                             local success, err = pcall(function()
                                 Collect:FireServer({ plant })
+                                task.wait(0.7)
                             end)
                             if success then
                                 totalCollected += 1
@@ -232,7 +235,7 @@ local function collectByOffering()
                             else
                                 warn("❌ Lỗi khi thu:", err)
                             end
-                            task.wait(1.5)
+                            task.wait(1.2)
                         else
                             --print("⏭️ Bỏ qua cây:", plant.Name, "| Lý do: Không có Glimmering")
                         end
