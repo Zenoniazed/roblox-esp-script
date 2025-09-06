@@ -83,7 +83,7 @@ end)
 
 -- 🔄 Cập nhật offerings từ WishFountain
 local function updateOfferings()
-    local basePath = workspace.Interaction.UpdateItems.FairyEvent.WishFountain
+    local basePath = workspace.FairyEvent.WishFountain
     for i = 1, 3 do
         local offering = basePath:FindFirstChild("Offering_" .. i)
         if offering and offering:FindFirstChild("GUI") then
@@ -102,7 +102,7 @@ updateOfferings()
 
 -- 👂 Theo dõi thay đổi text
 do
-    local basePath = workspace.Interaction.UpdateItems.FairyEvent.WishFountain
+    local basePath = workspace.FairyEvent.WishFountain
     for i = 1, 3 do
         local offering = basePath:FindFirstChild("Offering_" .. i)
         if offering and offering:FindFirstChild("GUI") then
