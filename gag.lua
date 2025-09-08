@@ -174,7 +174,7 @@ local function collectByOffering()
                     print("🌱 Đang xử lý cây:", plant.Name)
 
                     if plant.Name == "Mushroom" then
-                        -- 🍄 Xử lý riêng Mushroom
+                        -- 🍄 Mushroom phải có Glimmering
                         if plant:GetAttribute("Glimmering") == true then
                             print("✨ Thu hoạch Mushroom:", plant.Name)
                             local success, err = pcall(function()
@@ -191,16 +191,34 @@ local function collectByOffering()
                         else
                             print("⏭️ Bỏ qua Mushroom:", plant.Name, "| Lý do: Không có Glimmering")
                         end
-
+                    
+                    elseif plant.Name == "Watermelon" then
+                        -- 🍉 Watermelon chỉ cần Glimmering, không cần duyệt Fruits
+                        if plant:GetAttribute("Glimmering") == true then
+                            print("✨ Thu hoạch Watermelon:", plant.Name)
+                            local success, err = pcall(function()
+                                Collect:FireServer({ plant })
+                                task.wait(0.7)
+                            end)
+                            if success then
+                                totalCollected += 1
+                                need -= 1
+                                print(string.format("✅ Đã thu Watermelon | Còn cần: %d", need))
+                            else
+                                warn("❌ Lỗi khi thu Watermelon:", err)
+                            end
+                        else
+                            print("⏭️ Bỏ qua Watermelon:", plant.Name, "| Lý do: Không có Glimmering")
+                        end
+                    
                     elseif plant:FindFirstChild("Fruits") then
-                        -- 🍎 Cây có Fruits → duyệt từng quả
+                        -- 🍎 Các cây có trái bình thường
                         for _, fruit in ipairs(plant.Fruits:GetChildren()) do
-                            totalChecked += 1
                             local glimmering = fruit:GetAttribute("Glimmering")
                             local maxAge = fruit:GetAttribute("MaxAge")
                             local growFolder = fruit:FindFirstChild("Grow")
                             local ageValue = growFolder and growFolder:FindFirstChild("Age")
-
+                    
                             if ageValue and maxAge and glimmering and ageValue.Value >= maxAge then
                                 print("✨ Thu hoạch trái:", fruit.Name)
                                 local success, err = pcall(function()
@@ -218,9 +236,9 @@ local function collectByOffering()
                                 task.wait(1.2)
                             end
                         end
-
+                    
                     else
-                        -- 🌿 Cây không có Fruits (không phải Mushroom)
+                        -- 🌿 Cây không có Fruits và không phải Mushroom/Watermelon
                         if plant:GetAttribute("Glimmering") == true then
                             print("✨ Thu hoạch cây chính:", plant.Name)
                             local success, err = pcall(function()
@@ -231,7 +249,6 @@ local function collectByOffering()
                                 totalCollected += 1
                                 need -= 1
                                 print(string.format("✅ Đã thu %s | Còn cần: %d", plant.Name, need))
-                                
                             else
                                 warn("❌ Lỗi khi thu:", err)
                             end
@@ -240,7 +257,7 @@ local function collectByOffering()
                             print("⏭️ Bỏ qua cây:", plant.Name, "| Lý do: Không có Glimmering")
                         end
                     end
-
+                    
                     if need <= 0 then break end
                 end
             end
