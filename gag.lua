@@ -173,7 +173,7 @@ local function collectByOffering()
                 if plant.Name == plantName then
                     print("🌱 Đang xử lý cây:", plant.Name)
 
-                    if plant.Name == "Mushroom" or plant.Name == "Watermelon" then
+                    if plant.Name == "Mushroom" then
                         -- 🍄 Xử lý riêng Mushroom
                         if plant:GetAttribute("Glimmering") == true then
                             print("✨ Thu hoạch Mushroom:", plant.Name)
