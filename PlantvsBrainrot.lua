@@ -164,7 +164,7 @@ local function SELL_shouldSell(rarity, mutation, sizeVal)
     return (not goodM[mutation]) and (sizeVal < sellState.MinSizeMythic)
   end
   if  rarity=="Rare" or rarity=="Epic" or rarity=="Legendary" then
-    return (not goodM[mutation]) and (sizeVal < sellState.MinSizeCommon)
+    return (sizeVal < sellState.MinSizeCommon)
   end
   return true
 end
@@ -288,7 +288,7 @@ SellTab:Dropdown({
 
 SellTab:Section({ Title = "Mutations" })
 SellTab:Dropdown({
-  Title = "Keep Mutations",
+  Title = "Keep Mutations For Mythic",
   List = ALL_MUTS,
   Multi = true,
   Value = sellState.GoodMutations,
