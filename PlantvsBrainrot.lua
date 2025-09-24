@@ -130,7 +130,7 @@ local sellState = {
   AutoSell         = false,
   OnlyBrainrot     = true,
   KeepRarities     = { "Godly","Secret","Limited" },
-  GoodMutations    = { "Gold","Diamond","Rainbow","Galactic","Frozen","Neon" },
+  GoodMutations    = { "Gold","Diamond","Rainbow","Galactic","Frozen","Neon"},
   MinSizeCommon    = 7,    -- Rare/Epic/Legendary: giữ nếu size >= 7 (≈ 70kg)
   MinSizeMythic    = 2,    -- Mythic: bán nếu size < 2 và không thuộc GoodMutations
   LoopDelay        = 2,
