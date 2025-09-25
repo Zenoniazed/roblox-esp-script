@@ -9,7 +9,7 @@ local Library = loadstring(game:HttpGet(
   "https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/DummyUi-leak-by-x2zu/fetching-main/Tools/Framework.luau"
 ))()
 
--=========Anti AFK=========
+--=========Anti AFK=========
 -- 🌙 Anti AFK Roblox (luôn chạy)
 local Players = game:GetService("Players")
 local VirtualUser = game:GetService("VirtualUser")
