@@ -9,6 +9,28 @@ local Library = loadstring(game:HttpGet(
   "https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/DummyUi-leak-by-x2zu/fetching-main/Tools/Framework.luau"
 ))()
 
+-=========Anti AFK=========
+-- 🌙 Anti AFK Roblox (luôn chạy)
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+local player = Players.LocalPlayer
+
+-- Bắt sự kiện Idled
+player.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+end)
+
+-- Vòng lặp định kỳ (5 phút)
+task.spawn(function()
+    while true do
+        task.wait(300) -- chỉnh số giây nếu muốn nhanh/chậm hơn
+        VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end
+end)
 -- ========== Services ==========
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -271,12 +293,6 @@ SellTab:Toggle({
   end
 })
 
-SellTab:Toggle({
-  Title = "Chỉ bán Brainrot",
-  Value = sellState.OnlyBrainrot,
-  Callback = function(v) sellState.OnlyBrainrot = v; sell_save() end
-})
-
 SellTab:Section({ Title = "No sell Rarity" })
 SellTab:Dropdown({
   Title = "Keep Rarities",
@@ -359,4 +375,85 @@ SellTab:Textbox({
     end
   end
 })
+
+-- =============================================================
+-- ========== SELL BY PRICE (Brainrot-only option) ==============
+-- =============================================================
+
+local selectedRarities = {}
+local maxPrice = nil
+local onlyBrainrot = true
+
+local function PRICE_isBrainrot(tool, core)
+    local v = tool and tool.GetAttribute and tool:GetAttribute("Brainrot")
+    if v == nil and core and core.GetAttribute then
+        v = core:GetAttribute("Brainrot")
+    end
+    return v and true or false
+end
+
+local function PRICE_shouldSell(tool)
+    if not tool or not tool:IsA("Tool") then return false end
+    local core = SELL_findPetCore(tool); if not core then return false end
+
+    if onlyBrainrot and not PRICE_isBrainrot(tool, core) then return false end
+
+    local rarity = core:GetAttribute("Rarity")
+    local worth  = core:GetAttribute("Worth")
+    if not rarity or not worth then return false end
+
+    local rarSet = {}
+    for _,r in ipairs(selectedRarities) do rarSet[r]=true end
+
+    return rarSet[rarity] and (tonumber(worth) or 0) < maxPrice
+end
+
+local function PRICE_sellNow()
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if PRICE_shouldSell(tool) then
+            if SELL_equipTool(tool) then
+                pcall(function() ItemSell:FireServer(true) end)
+                task.wait(0.1)
+            end
+        end
+    end
+end
+
+-- ===================== UI trong SellTab =====================
+
+SellTab:Section({ Title = "Sell theo giá (nhanh)" })
+
+SellTab:Dropdown({
+    Title = "Chọn Rarity",
+    List = ALL_RARITIES,
+    Multi = true,
+    Value = {},
+    Callback = function(opts)
+        selectedRarities = opts
+    end
+})
+
+SellTab:Textbox({
+    Title = "Bán nếu Worth <",
+    Placeholder = "0",
+    Value = "",
+    Callback = function(txt)
+        local v = tonumber(txt)
+        if v then maxPrice = v end
+    end
+})
+
+
+SellTab:Button({
+    Title = "Sell Now",
+    Callback = function()
+        if not maxPrice or #selectedRarities == 0 then
+            warn("[SELL BY PRICE] Vui lòng chọn Rarity và nhập giá hợp lệ!")
+            return
+        end
+        PRICE_sellNow()
+    end
+})
+
+
 
