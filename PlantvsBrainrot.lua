@@ -124,7 +124,7 @@ local ItemSell = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSel
 local SELL_CONFIG = "AutoSell_Config.json"
 local ATTR_RARITY, ATTR_MUTATION, ATTR_SIZE = "Rarity", "Mutation", "Size"
 local ALL_RARITIES = { "Rare","Epic","Legendary","Mythic","Godly","Secret","Limited" }
-local ALL_MUTS     = { "Gold","Diamond","Rainbow","Galactic","Frozen" }
+local ALL_MUTS     = { "Gold","Diamond","Rainbow","Galactic","Frozen","Neon" }
 
 local sellState = {
   AutoSell         = false,
