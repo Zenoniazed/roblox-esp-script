@@ -1748,9 +1748,7 @@ function Library:Window(p)
 		            if child == RealBackground then
 		                passedSelf = true
 		            elseif passedSelf and child:IsA("Frame") then
-		                if isSectionFrame(child) then
-		                    break
-		                end
+		                if isSectionFrame(child) then break end
 		                child.Visible = not collapsed
 		            end
 		        end
@@ -1768,23 +1766,16 @@ function Library:Window(p)
 		    function New:SetTitle(t)
 		        Section_1.Text = t
 		    end
-		
-		    -- 🔑 Thêm hàm public để apply collapse cho các control mới add
 		    function New:ApplyCollapsed(childFrame)
-		        if collapsed then
-		            childFrame.Visible = false
-		        end
+		        if collapsed then childFrame.Visible = false end
 		    end
 		
-		    -- mặc định mở hoặc đóng theo p.Collapsed
-		    if p.Collapsed == true then
-		        setCollapsed(true)
-		    else
-		        setCollapsed(false)
-		    end
+		    -- 🔑 Luôn đóng mặc định
+		    setCollapsed(true)
 		
 		    return New
 		end
+
 
 
 		function Func:Section2(p)
