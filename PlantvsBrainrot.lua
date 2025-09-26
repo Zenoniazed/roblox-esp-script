@@ -309,7 +309,7 @@ SellTab:Dropdown({
 
 SellTab:Textbox({
   Title = "Size Rare/Epic/Legendary (Below) ",
-  Placeholder = tostring(sellState.MinSizeCommon),
+  Placeholder = tostring(sellState.MinSizeCommon*10),
   Value = "",
   Callback = function(txt)
     local v = tonumber(txt)
@@ -325,7 +325,7 @@ SellTab:Textbox({
 
 SellTab:Textbox({
   Title = "Size Mythic (Below)",
-  Placeholder = tostring(sellState.MinSizeMythic),
+  Placeholder = tostring(sellState.MinSizeMythic*10),
   Value = "",
   Callback = function(txt)
     local v = tonumber(txt)
