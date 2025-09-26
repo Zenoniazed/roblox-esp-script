@@ -308,7 +308,7 @@ SellTab:Dropdown({
 })
 
 SellTab:Textbox({
-  Title = "Don't sell above size (Rare/Epic/Legendary)",
+  Title = "Size Rare/Epic/Legendary (Below) ",
   Placeholder = tostring(sellState.MinSizeCommon),
   Value = "",
   Callback = function(txt)
@@ -324,7 +324,7 @@ SellTab:Textbox({
 })
 
 SellTab:Textbox({
-  Title = "Sell below size (Mythic)",
+  Title = "Size Mythic (Below)",
   Placeholder = tostring(sellState.MinSizeMythic),
   Value = "",
   Callback = function(txt)
@@ -349,21 +349,6 @@ SellTab:Textbox({
       if v < 0.05 then v = 0.05 end
       if v > 5 then v = 5 end
       sellState.PerItemDelay = tonumber(string.format("%.2f", v))
-      sell_save()
-    end
-  end
-})
-
-SellTab:Textbox({
-  Title = "Delay scan(s)",
-  Placeholder = tostring(sellState.LoopDelay),
-  Value = "",
-  Callback = function(txt)
-    local v = tonumber(txt)
-    if v then
-      if v < 0.5 then v = 0.5 end
-      if v > 30 then v = 30 end
-      sellState.LoopDelay = tonumber(string.format("%.1f", v))
       sell_save()
     end
   end
@@ -417,7 +402,7 @@ end
 local SecPrice = SellTab:Section({ Title = "Sell theo giá (nhanh)" })
 
 SellTab:Dropdown({
-    Title = "Chọn Rarity",
+    Title = "Độ Hiếm",
     List = ALL_RARITIES,
     Multi = true,
     Value = {},
@@ -427,7 +412,7 @@ SellTab:Dropdown({
 })
 
 SellTab:Textbox({
-    Title = "Bán nếu Worth <",
+    Title = "Giá thấp nhất",
     Placeholder = "0",
     Value = "",
     Callback = function(txt)
