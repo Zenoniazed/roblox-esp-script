@@ -275,7 +275,7 @@ end)
 -- === UI: TAB RIÊNG CHO AUTO SELL ===
 local SellTab = Window:Tab({ Title = "Auto Sell", Icon = "recycle" })
 
-SellTab:Section2({ Title = "Auto Sell Brainrot" })
+SellTab:Section({ Title = "Auto Sell Brainrot" })
 SellTab:Toggle({
   Title = "Auto Sell",
   Value = sellState.AutoSell,
@@ -399,7 +399,7 @@ end
 
 -- ===================== UI trong SellTab =====================
 
-local SecPrice = SellTab:Section({ Title = "Sell by price" })
+local SecPrice = SellTab:Section({ Title = "Sell By Price" })
 
 SellTab:Dropdown({
     Title = "Rarity",
