@@ -1682,103 +1682,7 @@ function Library:Window(p)
 		end)
 
 		local Func = {}
-
-		function Func:Section(p)
-		    local Title = p.Title or 'null'
-		    local RealBackground = Instance.new("Frame")
-		    local Section = Instance.new("Frame")
-		    local Section_1 = Instance.new("TextLabel")
-		    local UIPadding_1 = Instance.new("UIPadding")
 		
-		    RealBackground.Name = "Real Background"
-		    RealBackground.Parent = ScrollingFrame_1
-		    RealBackground.BackgroundTransparency = 1
-		    RealBackground.BorderSizePixel = 0
-		    RealBackground.Size = UDim2.new(1, 0, 0, 20)
-		    RealBackground.ClipsDescendants = true
-		
-		    Section.Name = "Background"
-		    Section.Parent = RealBackground
-		    Section.BackgroundTransparency = 1
-		    Section.BorderSizePixel = 0
-		    Section.Size = UDim2.new(1, 0, 0, 20)
-		    Section.ZIndex = 2
-		
-		    Section_1.Name = "Section"
-		    Section_1.Parent = Section
-		    Section_1.BackgroundTransparency = 1
-		    Section_1.BorderSizePixel = 0
-		    Section_1.Size = UDim2.new(1, 0, 0, 20)
-		    Section_1.Font = Enum.Font.GothamBold
-		    Section_1.Text = Title
-		    Section_1.TextColor3 = Color3.fromRGB(255,255,255)
-		    Section_1.TextSize = 12
-		    Section_1.TextXAlignment = Enum.TextXAlignment.Left
-		    Section_1.ZIndex = 2
-		
-		    addToTheme('Text & Icon', Section_1)
-		
-		    local Arrow = Instance.new("ImageButton")
-		    Arrow.Name = "CollapseArrow"
-		    Arrow.Parent = Section
-		    Arrow.AnchorPoint = Vector2.new(1, 0.5)
-		    Arrow.Position = UDim2.new(1, -6, 0.5, 0)
-		    Arrow.Size = UDim2.new(0, 14, 0, 14)
-		    Arrow.BackgroundTransparency = 1
-		    Arrow.Image = "rbxassetid://14937709869"
-		    Arrow.ImageTransparency = 0.3
-		    Arrow.ZIndex = 3
-		    addToTheme('Text & Icon', Arrow)
-		
-		    local collapsed = false
-		
-		    local function isSectionFrame(frm: Instance)
-		        local ok, has = pcall(function()
-		            return frm:IsA("Frame")
-		                and frm:FindFirstChild("Background")
-		                and frm.Background:FindFirstChild("Section") ~= nil
-		        end)
-		        return ok and has
-		    end
-		
-		    local function setCollapsed(state: boolean)
-			    collapsed = state
-			    RealBackground._collapsed = collapsed -- lưu trạng thái vào frame
-			    Arrow.Rotation = collapsed and -90 or 0
-			
-			    local parentList = ScrollingFrame_1
-			    local passedSelf = false
-			    for _, child in ipairs(parentList:GetChildren()) do
-			        if child == RealBackground then
-			            passedSelf = true
-			        elseif passedSelf and child:IsA("Frame") then
-			            if isSectionFrame(child) then break end
-			            child.Visible = not collapsed
-			        end
-			    end
-			end
-			
-			-- Luôn đóng mặc định
-			setCollapsed(true)
-		
-		    Arrow.MouseButton1Click:Connect(function()
-		        setCollapsed(not collapsed)
-		    end)
-		
-		    UIPadding_1.Parent = Section
-		    UIPadding_1.PaddingLeft = UDim.new(0,5)
-		    UIPadding_1.PaddingRight = UDim.new(0,5)
-		
-		    local New = {}
-		    function New:SetTitle(t)
-		        Section_1.Text = t
-		    end
-		    return New
-		end
-
-
-
-
 		function Func:Section(p)
 		    local Title = p.Title or 'null'
 		    local RealBackground = Instance.new("Frame")
@@ -1872,7 +1776,56 @@ function Library:Window(p)
 		    return New
 		end
 
+		function Func:Section2(p)
+			local Title = p.Title or 'null'
+			local RealBackground = Instance.new("Frame")
+			local Section = Instance.new("Frame")
+			local Section_1 = Instance.new("TextLabel")
+			local UIPadding_1 = Instance.new("UIPadding")
 
+			RealBackground.Name = "Real Background"
+			RealBackground.Parent = ScrollingFrame_1
+			RealBackground.BackgroundTransparency = 1
+			RealBackground.BorderColor3 = Color3.fromRGB(0,0,0)
+			RealBackground.BorderSizePixel = 0
+			RealBackground.Size = UDim2.new(1, 0,0, 20)
+			RealBackground.ClipsDescendants = true
+
+			Section.Name = "Background"
+			Section.Parent = RealBackground
+			Section.BackgroundColor3 = Color3.fromRGB(255,255,255)
+			Section.BackgroundTransparency = 1
+			Section.BorderColor3 = Color3.fromRGB(0,0,0)
+			Section.BorderSizePixel = 0
+			Section.Size = UDim2.new(1, 0,0, 20)
+
+			Section_1.Name = "Section"
+			Section_1.Parent = Section
+			Section_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
+			Section_1.BackgroundTransparency = 1
+			Section_1.BorderColor3 = Color3.fromRGB(0,0,0)
+			Section_1.BorderSizePixel = 0
+			Section_1.Size = UDim2.new(1, 0,0, 20)
+			Section_1.Font = Enum.Font.GothamBold
+			Section_1.Text = Title
+			Section_1.TextColor3 = Color3.fromRGB(255,255,255)
+			Section_1.TextSize = 12
+			Section_1.TextXAlignment = Enum.TextXAlignment.Left
+
+			addToTheme('Text & Icon', Section_1)
+
+			UIPadding_1.Parent = Section
+			UIPadding_1.PaddingLeft = UDim.new(0,5)
+			UIPadding_1.PaddingRight = UDim.new(0,5)
+
+			local New = {}
+
+			function New:SetTitle(t)
+				Section_1.Text = t
+			end
+
+			return New
+		end
 
 		function Func:Toggle(p)
 			local Value = p.Value or false
