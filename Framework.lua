@@ -1702,6 +1702,7 @@ function Library:Window(p)
 		    Section.BackgroundTransparency = 1
 		    Section.BorderSizePixel = 0
 		    Section.Size = UDim2.new(1, 0, 0, 20)
+		    Section.ZIndex = 2
 		
 		    Section_1.Name = "Section"
 		    Section_1.Parent = Section
@@ -1713,10 +1714,10 @@ function Library:Window(p)
 		    Section_1.TextColor3 = Color3.fromRGB(255,255,255)
 		    Section_1.TextSize = 12
 		    Section_1.TextXAlignment = Enum.TextXAlignment.Left
+		    Section_1.ZIndex = 2
 		
 		    addToTheme('Text & Icon', Section_1)
 		
-		    -- Mũi tên collapse
 		    local Arrow = Instance.new("ImageButton")
 		    Arrow.Name = "CollapseArrow"
 		    Arrow.Parent = Section
@@ -1726,6 +1727,8 @@ function Library:Window(p)
 		    Arrow.BackgroundTransparency = 1
 		    Arrow.Image = "rbxassetid://14937709869"
 		    Arrow.ImageTransparency = 0.3
+		    Arrow.ZIndex = 3
+		    addToTheme('Text & Icon', Arrow)
 		
 		    local collapsed = false
 		
@@ -1748,33 +1751,31 @@ function Library:Window(p)
 		            if child == RealBackground then
 		                passedSelf = true
 		            elseif passedSelf and child:IsA("Frame") then
-		                if isSectionFrame(child) then break end
+		                if isSectionFrame(child) then
+		                    break
+		                end
 		                child.Visible = not collapsed
 		            end
 		        end
 		    end
+		
+		    setCollapsed(false)
 		
 		    Arrow.MouseButton1Click:Connect(function()
 		        setCollapsed(not collapsed)
 		    end)
 		
 		    UIPadding_1.Parent = Section
-		    UIPadding_1.PaddingLeft = UDim.new(0, 5)
-		    UIPadding_1.PaddingRight = UDim.new(0, 5)
+		    UIPadding_1.PaddingLeft = UDim.new(0,5)
+		    UIPadding_1.PaddingRight = UDim.new(0,5)
 		
 		    local New = {}
 		    function New:SetTitle(t)
 		        Section_1.Text = t
 		    end
-		    function New:ApplyCollapsed(childFrame)
-		        if collapsed then childFrame.Visible = false end
-		    end
-		
-		    -- 🔑 Luôn đóng mặc định
-		    setCollapsed(true)
-		
 		    return New
 		end
+
 
 
 
