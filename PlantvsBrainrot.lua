@@ -275,7 +275,7 @@ end)
 -- === UI: TAB RIÊNG CHO AUTO SELL ===
 local SellTab = Window:Tab({ Title = "Auto Sell", Icon = "recycle" })
 
-SellTab:Section2({ Title = "Auto Sell Pet" })
+SellTab:Section2({ Title = "Auto Sell Brainrot" })
 SellTab:Toggle({
   Title = "Auto Sell",
   Value = sellState.AutoSell,
@@ -292,7 +292,7 @@ SellTab:Toggle({
 })
 
 SellTab:Dropdown({
-  Title = "Keep Rarities",
+  Title = "Dont Sell Rarity",
   List = ALL_RARITIES,
   Multi = true,
   Value = sellState.KeepRarities,
@@ -300,7 +300,7 @@ SellTab:Dropdown({
 })
 
 SellTab:Dropdown({
-  Title = "Keep Mutations For Mythic",
+  Title = "Mutations For Mythic",
   List = ALL_MUTS,
   Multi = true,
   Value = sellState.GoodMutations,
@@ -399,10 +399,10 @@ end
 
 -- ===================== UI trong SellTab =====================
 
-local SecPrice = SellTab:Section({ Title = "Sell theo giá (nhanh)" })
+local SecPrice = SellTab:Section({ Title = "Sell by price" })
 
 SellTab:Dropdown({
-    Title = "Độ Hiếm",
+    Title = "Rarity",
     List = ALL_RARITIES,
     Multi = true,
     Value = {},
@@ -412,7 +412,7 @@ SellTab:Dropdown({
 })
 
 SellTab:Textbox({
-    Title = "Giá thấp nhất",
+    Title = "Min Price",
     Placeholder = "0",
     Value = "",
     Callback = function(txt)
