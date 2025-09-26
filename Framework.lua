@@ -1759,7 +1759,7 @@ function Library:Window(p)
 		        end
 		    end
 		
-		    setCollapsed(false)
+		    setCollapsed(true)
 		
 		    Arrow.MouseButton1Click:Connect(function()
 		        setCollapsed(not collapsed)
