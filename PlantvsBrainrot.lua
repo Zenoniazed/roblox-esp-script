@@ -432,5 +432,102 @@ SellTab:Button({
     end
 })
 
+-- ========== Tab Auto Tele Collect ==========
+local TeleTab = Window:Tab({ Title = "Auto Collect", Icon = "coins" })
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Lấy plot của mình
+local function getMyPlot()
+    for _, plot in pairs(workspace.Plots:GetChildren()) do
+        if plot:GetAttribute("Owner") == player.Name then
+            print("[AUTO TELE] Found my plot:", plot.Name)
+            return plot
+        end
+    end
+    warn("[AUTO TELE] Không tìm thấy plot của bạn!")
+    return nil
+end
+
+local function teleportToBrainrots()
+    local myPlot = getMyPlot()
+    if not myPlot then return end
+
+    local brainrotsFolder = myPlot:FindFirstChild("Brainrots")
+    if not brainrotsFolder then
+        warn("[AUTO TELE] Plot không có folder Brainrots!")
+        return
+    end
+
+    local brainrots = brainrotsFolder:GetChildren()
+    if #brainrots == 0 then
+        warn("[AUTO TELE] Brainrots folder rỗng!")
+        return
+    end
+
+    for i, brainrot in ipairs(brainrots) do
+        local targetCFrame
+
+        if brainrot:IsA("BasePart") then
+            targetCFrame = brainrot.CFrame
+        elseif brainrot:IsA("Model") then
+            -- Nếu là model, ưu tiên PrimaryPart
+            if brainrot.PrimaryPart then
+                targetCFrame = brainrot.PrimaryPart.CFrame
+            else
+                -- fallback: lấy 1 BasePart con bất kỳ
+                local part = brainrot:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    targetCFrame = part.CFrame
+                end
+            end
+        end
+
+        if targetCFrame then
+            humanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 3, 0)
+            task.wait(0.5)
+        else
+        end
+    end
+end
+
+
+-- ===================== UI trong TeleTab =====================
+local autoTeleport = false
+local loopDelay = 300
+
+TeleTab:Textbox({
+    Title = "Delay (s)",
+    Placeholder = tostring(loopDelay),
+    Value = "",
+    Callback = function(txt)
+        local v = tonumber(txt)
+        if v and v >= 0 then
+            loopDelay = v
+        else
+        end
+    end
+})
+
+TeleTab:Toggle({
+    Title = "Auto Collect Money",
+    Value = false,
+    Callback = function(state)
+        autoTeleport = state
+        if autoTeleport then
+            task.spawn(function()
+                while autoTeleport do
+                    teleportToBrainrots()
+                    task.wait(loopDelay)
+                end
+            end)
+        else
+        end
+    end
+})
+
 
 
