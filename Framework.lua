@@ -1779,8 +1779,8 @@ function Library:Window(p)
 
 
 
-		function Func:Section2(p)
-		    local Title = p.Title or "null"
+		function Func:Section(p)
+		    local Title = p.Title or 'null'
 		    local RealBackground = Instance.new("Frame")
 		    local Section = Instance.new("Frame")
 		    local Section_1 = Instance.new("TextLabel")
@@ -1798,6 +1798,7 @@ function Library:Window(p)
 		    Section.BackgroundTransparency = 1
 		    Section.BorderSizePixel = 0
 		    Section.Size = UDim2.new(1, 0, 0, 20)
+		    Section.ZIndex = 2
 		
 		    Section_1.Name = "Section"
 		    Section_1.Parent = Section
@@ -1809,18 +1810,65 @@ function Library:Window(p)
 		    Section_1.TextColor3 = Color3.fromRGB(255,255,255)
 		    Section_1.TextSize = 12
 		    Section_1.TextXAlignment = Enum.TextXAlignment.Left
+		    Section_1.ZIndex = 2
 		
-		    addToTheme("Text & Icon", Section_1)
+		    addToTheme('Text & Icon', Section_1)
+		
+		    local Arrow = Instance.new("ImageButton")
+		    Arrow.Name = "CollapseArrow"
+		    Arrow.Parent = Section
+		    Arrow.AnchorPoint = Vector2.new(1, 0.5)
+		    Arrow.Position = UDim2.new(1, -6, 0.5, 0)
+		    Arrow.Size = UDim2.new(0, 14, 0, 14)
+		    Arrow.BackgroundTransparency = 1
+		    Arrow.Image = "rbxassetid://14937709869"
+		    Arrow.ImageTransparency = 0.3
+		    Arrow.ZIndex = 3
+		    addToTheme('Text & Icon', Arrow)
+		
+		    local collapsed = false
+		
+		    local function isSectionFrame(frm: Instance)
+		        local ok, has = pcall(function()
+		            return frm:IsA("Frame")
+		                and frm:FindFirstChild("Background")
+		                and frm.Background:FindFirstChild("Section") ~= nil
+		        end)
+		        return ok and has
+		    end
+		
+		    local function setCollapsed(state: boolean)
+		        collapsed = state
+		        Arrow.Rotation = collapsed and -90 or 0
+		
+		        local parentList = ScrollingFrame_1
+		        local passedSelf = false
+		        for _, child in ipairs(parentList:GetChildren()) do
+		            if child == RealBackground then
+		                passedSelf = true
+		            elseif passedSelf and child:IsA("Frame") then
+		                if isSectionFrame(child) then
+		                    break
+		                end
+		                child.Visible = not collapsed
+		            end
+		        end
+		    end
+		
+		    setCollapsed(false)
+		
+		    Arrow.MouseButton1Click:Connect(function()
+		        setCollapsed(not collapsed)
+		    end)
 		
 		    UIPadding_1.Parent = Section
-		    UIPadding_1.PaddingLeft = UDim.new(0, 5)
-		    UIPadding_1.PaddingRight = UDim.new(0, 5)
+		    UIPadding_1.PaddingLeft = UDim.new(0,5)
+		    UIPadding_1.PaddingRight = UDim.new(0,5)
 		
 		    local New = {}
 		    function New:SetTitle(t)
 		        Section_1.Text = t
 		    end
-		
 		    return New
 		end
 
@@ -1986,69 +2034,59 @@ function Library:Window(p)
 		end
 
 		function Func:Button(p)
-    local RealBackground = Instance.new("Frame")
-    RealBackground.Parent = ScrollingFrame_1
-    local Title = p.Title or 'null'
-    local Desc = p.Desc or ''
-    local Image = p.Image or ''
-    local Callback = p.Callback or function() end
-
-    local Button, Config = background(ScrollingFrame_1, Title, Desc, Image, 'Button')
-    Config:SetTextTransparencyTitle(0)
-    Config:SetSizeT(50)
-    Button.ClipsDescendants = true
-
-    local F = Instance.new("Frame")
-    local UIListLayout_1 = Instance.new("UIListLayout")
-    local UIPadding_1 = Instance.new("UIPadding")
-    local Image_1 = Instance.new("ImageLabel")
-
-    F.Name = "F"
-    F.Parent = Button
-    F.AnchorPoint = Vector2.new(1, 0.5)
-    F.BackgroundTransparency = 1
-    F.Position = UDim2.new(1, 0, 0.5, 0)
-    F.Size = UDim2.new(0, 50, 0.8, 0)
-
-    UIListLayout_1.Parent = F
-    UIListLayout_1.Padding = UDim.new(0, 8)
-    UIListLayout_1.FillDirection = Enum.FillDirection.Horizontal
-    UIListLayout_1.HorizontalAlignment = Enum.HorizontalAlignment.Right
-    UIListLayout_1.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout_1.VerticalAlignment = Enum.VerticalAlignment.Center
-
-    UIPadding_1.Parent = F
-    UIPadding_1.PaddingRight = UDim.new(0, 13)
-
-    Image_1.Name = "Image"
-    Image_1.Parent = F
-    Image_1.AnchorPoint = Vector2.new(1, 0.5)
-    Image_1.BackgroundTransparency = 1
-    Image_1.Position = UDim2.new(1, 0, 0.5, 0)
-    Image_1.Size = UDim2.new(0, 20, 0, 20)
-    Image_1.Image = "rbxassetid://14923748517"
-    Image_1.ImageTransparency = 0.3
-
-    local Click = click(Button)
-    Click.MouseButton1Click:Connect(function()
-        Button.AnchorPoint = Vector2.new(0.5, 0.5)
-        Button.Position = UDim2.new(0.5, 0, 0.5, 0)
-        jc(Click, Button)
-        tw({v = Button, t = 0.15, s = Enum.EasingStyle.Back, d = "Out", g = {Size = UDim2.new(.9, 0,.9, 0)}}):Play()
-        delay(.06, function()
-            tw({v = Button, t = 0.15, s = Enum.EasingStyle.Back, d = "Out", g = {Size = UDim2.new(1, 0,1, 0)}}):Play()
-        end)
-        pcall(Callback)
-    end)
-
-    -- 🔑 Fix: nếu Section cha collapsed thì ẩn luôn
-    local sec = RealBackground.Parent
-    if sec and sec._collapsed then
-        Button.Visible = false
-    end
-
-    return Button
-end
+		    local Title = p.Title or 'null'
+		    local Desc = p.Desc or ''
+		    local Image = p.Image or ''
+		    local Callback = p.Callback or function() end
+		
+		    local Button, Config = background(ScrollingFrame_1, Title, Desc, Image, 'Button')
+		    Config:SetTextTransparencyTitle(0)
+		    Config:SetSizeT(50)
+		    Button.ClipsDescendants = true
+		
+		    local F = Instance.new("Frame")
+		    local UIListLayout_1 = Instance.new("UIListLayout")
+		    local UIPadding_1 = Instance.new("UIPadding")
+		    local Image_1 = Instance.new("ImageLabel")
+		
+		    F.Name = "F"
+		    F.Parent = Button
+		    F.AnchorPoint = Vector2.new(1, 0.5)
+		    F.BackgroundTransparency = 1
+		    F.Position = UDim2.new(1, 0, 0.5, 0)
+		    F.Size = UDim2.new(0, 50, 0.8, 0)
+		
+		    UIListLayout_1.Parent = F
+		    UIListLayout_1.Padding = UDim.new(0, 8)
+		    UIListLayout_1.FillDirection = Enum.FillDirection.Horizontal
+		    UIListLayout_1.HorizontalAlignment = Enum.HorizontalAlignment.Right
+		    UIListLayout_1.SortOrder = Enum.SortOrder.LayoutOrder
+		    UIListLayout_1.VerticalAlignment = Enum.VerticalAlignment.Center
+		
+		    UIPadding_1.Parent = F
+		    UIPadding_1.PaddingRight = UDim.new(0, 13)
+		
+		    Image_1.Name = "Image"
+		    Image_1.Parent = F
+		    Image_1.AnchorPoint = Vector2.new(1, 0.5)
+		    Image_1.BackgroundTransparency = 1
+		    Image_1.Position = UDim2.new(1, 0, 0.5, 0)
+		    Image_1.Size = UDim2.new(0, 20, 0, 20)
+		    Image_1.Image = "rbxassetid://14923748517"
+		    Image_1.ImageTransparency = 0.3
+		
+		    local Click = click(Button)
+		    Click.MouseButton1Click:Connect(function()
+		        Button.AnchorPoint = Vector2.new(0.5, 0.5)
+		        Button.Position = UDim2.new(0.5, 0, 0.5, 0)
+		        jc(Click, Button)
+		        tw({v = Button, t = 0.15, s = Enum.EasingStyle.Back, d = "Out", g = {Size = UDim2.new(.9, 0,.9, 0)}}):Play()
+		        delay(.06, function()
+		            tw({v = Button, t = 0.15, s = Enum.EasingStyle.Back, d = "Out", g = {Size = UDim2.new(1, 0,1, 0)}}):Play()
+		        end)
+		        pcall(Callback)
+		    end)
+		end
 
 
 		function Func:Slider(p)
