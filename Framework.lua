@@ -1776,6 +1776,52 @@ function Library:Window(p)
 		    return New
 		end
 
+		function Func:Section2(p)
+		    local Title = p.Title or "null"
+		    local RealBackground = Instance.new("Frame")
+		    local Section = Instance.new("Frame")
+		    local Section_1 = Instance.new("TextLabel")
+		    local UIPadding_1 = Instance.new("UIPadding")
+		
+		    RealBackground.Name = "Real Background"
+		    RealBackground.Parent = ScrollingFrame_1
+		    RealBackground.BackgroundTransparency = 1
+		    RealBackground.BorderSizePixel = 0
+		    RealBackground.Size = UDim2.new(1, 0, 0, 20)
+		    RealBackground.ClipsDescendants = true
+		
+		    Section.Name = "Background"
+		    Section.Parent = RealBackground
+		    Section.BackgroundTransparency = 1
+		    Section.BorderSizePixel = 0
+		    Section.Size = UDim2.new(1, 0, 0, 20)
+		
+		    Section_1.Name = "Section"
+		    Section_1.Parent = Section
+		    Section_1.BackgroundTransparency = 1
+		    Section_1.BorderSizePixel = 0
+		    Section_1.Size = UDim2.new(1, 0, 0, 20)
+		    Section_1.Font = Enum.Font.GothamBold
+		    Section_1.Text = Title
+		    Section_1.TextColor3 = Color3.fromRGB(255,255,255)
+		    Section_1.TextSize = 12
+		    Section_1.TextXAlignment = Enum.TextXAlignment.Left
+		
+		    addToTheme("Text & Icon", Section_1)
+		
+		    UIPadding_1.Parent = Section
+		    UIPadding_1.PaddingLeft = UDim.new(0, 5)
+		    UIPadding_1.PaddingRight = UDim.new(0, 5)
+		
+		    local New = {}
+		    function New:SetTitle(t)
+		        Section_1.Text = t
+		    end
+		
+		    return New
+		end
+
+
 
 		function Func:Toggle(p)
 			local Value = p.Value or false
