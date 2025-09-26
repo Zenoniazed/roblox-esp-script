@@ -307,9 +307,6 @@ SellTab:Dropdown({
   Callback = function(opts) sellState.GoodMutations = opts; sell_save() end
 })
 
--- === Auto Sell: nhập số với placeholder mặc định ===
-SellTab:Section({ Title = "Size •  Quy ước: 1 = 10kg" })
-
 SellTab:Textbox({
   Title = "Don't sell above size (Rare/Epic/Legendary)",
   Placeholder = tostring(sellState.MinSizeCommon),
@@ -318,8 +315,9 @@ SellTab:Textbox({
     local v = tonumber(txt)
     if v then
       if v < 0 then v = 0 end
-      if v > 100 then v = 100 end
-      sellState.MinSizeCommon = tonumber(string.format("%.2f", v))
+      if v > 10000 then v = 10000 end
+      local z = v/10
+      sellState.MinSizeCommon = tonumber(string.format("%.2f", z))
       sell_save()
     end
   end
@@ -333,8 +331,9 @@ SellTab:Textbox({
     local v = tonumber(txt)
     if v then
       if v < 0 then v = 0 end
-      if v > 100 then v = 100 end
-      sellState.MinSizeMythic = tonumber(string.format("%.2f", v))
+      if v > 10000 then v = 10000 end
+      local z = v/10
+      sellState.MinSizeMythic = tonumber(string.format("%.2f", z))
       sell_save()
     end
   end
