@@ -5,9 +5,7 @@
 --   • Size hiển thị dùng thẳng 0–10 (vd 70kg -> 7)
 
 -- ========== UI lib ==========
-local Library = loadstring(game:HttpGet(
-  "https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/DummyUi-leak-by-x2zu/fetching-main/Tools/Framework.luau"
-))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/Framework.lua", true))()
 
 --=========Anti AFK=========
 -- 🌙 Anti AFK Roblox (luôn chạy)
@@ -91,18 +89,13 @@ local Window = Library:Window({
   Title = "🌱Plant Vs Brainrot",
   Desc  = "By Hải Đẹp Zai",
   Theme = "Amethyst",
-  Config = { Keybind = Enum.KeyCode.K, Size = UDim2.new(0, 520, 0, 520) },
+  Config = { Keybind = Enum.KeyCode.K, Size = UDim2.new(0, 400, 0, 300) },
   CloseUIButton = { Enabled = true, Text = "ZEN" }
 })
 local Tab = Window:Tab({ Title = "Auto Buy", Icon = "star" })
 
 -- Seeds
 Tab:Section({ Title = "Seeds" })
-Tab:Toggle({
-  Title = "Auto Buy Seeds",
-  Value = buyState.AutoBuySeeds,
-  Callback = function(v) buyState.AutoBuySeeds=v; buy_save() end
-})
 local SeedDropdownList = { "All Seeds" }; for _,s in ipairs(SEEDS) do table.insert(SeedDropdownList,s) end
 Tab:Dropdown({
   Title = "Select Seeds",
@@ -111,14 +104,13 @@ Tab:Dropdown({
   Value = buyState.SelectedSeeds,
   Callback = function(opts) buyState.SelectedSeeds=opts; buy_save() end
 })
-
+Tab:Toggle({
+  Title = "Auto Buy Seeds",
+  Value = buyState.AutoBuySeeds,
+  Callback = function(v) buyState.AutoBuySeeds=v; buy_save() end
+})
 -- Items
 Tab:Section({ Title = "Items" })
-Tab:Toggle({
-  Title = "Auto Buy Items",
-  Value = buyState.AutoBuyItems,
-  Callback = function(v) buyState.AutoBuyItems=v; buy_save() end
-})
 local ItemDropdownList = { "All Items" }; for _,it in ipairs(ITEMS) do table.insert(ItemDropdownList,it) end
 Tab:Dropdown({
   Title = "Select Items",
@@ -127,6 +119,12 @@ Tab:Dropdown({
   Value = buyState.SelectedItems,
   Callback = function(opts) buyState.SelectedItems=opts; buy_save() end
 })
+Tab:Toggle({
+  Title = "Auto Buy Items",
+  Value = buyState.AutoBuyItems,
+  Callback = function(v) buyState.AutoBuyItems=v; buy_save() end
+})
+
 
 -- =================================================================
 -- ========== (Thêm mới) AUTO SELL BRAINROT – dưới mục Main =========
@@ -277,7 +275,7 @@ end)
 -- === UI: TAB RIÊNG CHO AUTO SELL ===
 local SellTab = Window:Tab({ Title = "Auto Sell", Icon = "recycle" })
 
-SellTab:Section({ Title = "Auto Sell Pet" })
+SellTab:Section2({ Title = "Auto Sell Pet" })
 SellTab:Toggle({
   Title = "Auto Sell",
   Value = sellState.AutoSell,
@@ -293,7 +291,6 @@ SellTab:Toggle({
   end
 })
 
-SellTab:Section({ Title = "No sell Rarity" })
 SellTab:Dropdown({
   Title = "Keep Rarities",
   List = ALL_RARITIES,
@@ -302,7 +299,6 @@ SellTab:Dropdown({
   Callback = function(opts) sellState.KeepRarities = opts; sell_save() end
 })
 
-SellTab:Section({ Title = "Mutations" })
 SellTab:Dropdown({
   Title = "Keep Mutations For Mythic",
   List = ALL_MUTS,
@@ -343,8 +339,6 @@ SellTab:Textbox({
     end
   end
 })
-
-SellTab:Section({ Title = "Time" })
 
 SellTab:Textbox({
   Title = "Delay(s)",
@@ -421,7 +415,7 @@ end
 
 -- ===================== UI trong SellTab =====================
 
-SellTab:Section({ Title = "Sell theo giá (nhanh)" })
+local SecPrice = SellTab:Section({ Title = "Sell theo giá (nhanh)" })
 
 SellTab:Dropdown({
     Title = "Chọn Rarity",
@@ -442,7 +436,6 @@ SellTab:Textbox({
         if v then maxPrice = v end
     end
 })
-
 
 SellTab:Button({
     Title = "Sell Now",
