@@ -450,6 +450,92 @@ SellTab:Toggle({
     end
 })
 
+-- =============================================================
+-- ========== AUTO SELL PLANT (theo Plant + Damage) =============
+-- =============================================================
+
+local selectedPlants = {}
+local maxDamage = nil
+local autoPlant = false
+
+local function PLANT_shouldSell(tool)
+    if not tool or not tool:IsA("Tool") then return false end
+    local plantName = tool:GetAttribute("Plant") or tool:GetAttribute("ItemName")
+    local damage = tool:GetAttribute("Damage")
+
+    if not plantName or not damage then return false end
+
+    local set = {}
+    for _,p in ipairs(selectedPlants) do set[p]=true end
+
+    return set[plantName] and (tonumber(damage) or 0) <= (maxDamage or 0)
+end
+
+local function PLANT_sellNow()
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if PLANT_shouldSell(tool) then
+            if SELL_equipTool(tool) then
+                pcall(function() ItemSell:FireServer(true) end)
+                task.wait(0.1)
+            end
+        end
+    end
+end
+
+-- Vòng lặp Auto Sell Plant
+task.spawn(function()
+    while true do
+        if autoPlant and maxDamage and #selectedPlants > 0 then
+            PLANT_sellNow()
+        end
+        task.wait(2) -- delay scan mặc định, có thể thêm Textbox để chỉnh
+    end
+end)
+
+-- ===================== UI trong SellTab =====================
+local SecPlant = SellTab:Section({ Title = "Auto Sell Plant" })
+
+SellTab:Dropdown({
+    Title = "Select Plant",
+    List = "Cactus","Strawberry","Pumpkin","Sunflower",
+  "Dragon Fruit","Eggplant","Watermelon","Grape","Cocotank",
+  "Carnivorous Plant","Mr Carrot","Tomatrio","Shroombino"
+    Multi = true,
+    Value = {},
+    Callback = function(opts)
+        selectedPlants = opts
+    end
+})
+
+SellTab:Textbox({
+    Title = "Max Damage",
+    Placeholder = "0",
+    Value = "",
+    Callback = function(txt)
+        local v = tonumber(txt)
+        if v then maxDamage = v end
+    end
+})
+
+SellTab:Button({
+    Title = "Sell Now",
+    Callback = function()
+        if not maxDamage or #selectedPlants == 0 then
+            warn("[SELL PLANT] Vui lòng chọn Plant và nhập Damage hợp lệ!")
+            return
+        end
+        PLANT_sellNow()
+    end
+})
+
+SellTab:Toggle({
+    Title = "Auto Sell Plant",
+    Value = false,
+    Callback = function(v)
+        autoPlant = v
+    end
+})
+
 
 -- ========== Tab Auto Tele Collect ==========
 local TeleTab = Window:Tab({ Title = "Auto Collect", Icon = "coins" })
