@@ -549,7 +549,7 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local function getMyPlot()
     for _, plot in pairs(workspace.Plots:GetChildren()) do
         if plot:GetAttribute("Owner") == player.Name then
-            print("[AUTO TELE] Found my plot:", plot.Name)
+            -- print("[AUTO TELE] Found my plot:", plot.Name)
             return plot
         end
     end
