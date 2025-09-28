@@ -573,15 +573,15 @@ local function teleportToBrainrots()
         return
     end
 
-    for _, brainrot in ipairs(brainrots) do
-        -- ✅ chỉ xử lý model có attribute Brainrot
-        if brainrot:IsA("Model") and brainrot:GetAttribute("Brainrot") then
+    for _, slot in ipairs(brainrots) do
+        -- ✅ mỗi slot có thể là Folder (1, 2, 3, ...)
+        local brainrotModel = slot:FindFirstChild("Brainrot")
+        if brainrotModel and brainrotModel:IsA("Model") then
             local targetCFrame
-
-            if brainrot.PrimaryPart then
-                targetCFrame = brainrot.PrimaryPart.CFrame
+            if brainrotModel.PrimaryPart then
+                targetCFrame = brainrotModel.PrimaryPart.CFrame
             else
-                local part = brainrot:FindFirstChildWhichIsA("BasePart")
+                local part = brainrotModel:FindFirstChildWhichIsA("BasePart")
                 if part then
                     targetCFrame = part.CFrame
                 end
@@ -591,6 +591,8 @@ local function teleportToBrainrots()
                 humanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 3, 0)
                 task.wait(0.5)
             end
+        else
+            
         end
     end
 end
