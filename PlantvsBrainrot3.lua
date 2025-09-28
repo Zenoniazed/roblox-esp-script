@@ -374,7 +374,6 @@ local function PRICE_sellNow()
     if tool:IsA("Tool") and PRICE_shouldSell(tool) then
       if SELL_equipTool(tool) then
         pcall(function() ItemSell:FireServer(true) end)
-        task.wait(0.1)
       end
     end
   end
@@ -449,7 +448,6 @@ local function PLANT_sellNow()
     if tool:IsA("Tool") and PLANT_shouldSell(tool) then
       if SELL_equipTool(tool) then
         pcall(function() ItemSell:FireServer(true) end)
-        task.wait(0.1)
       end
     end
   end
