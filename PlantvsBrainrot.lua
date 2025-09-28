@@ -573,31 +573,28 @@ local function teleportToBrainrots()
         return
     end
 
-    for i, brainrot in ipairs(brainrots) do
-        local targetCFrame
+    for _, brainrot in ipairs(brainrots) do
+        -- ✅ chỉ xử lý model có attribute Brainrot
+        if brainrot:IsA("Model") and brainrot:GetAttribute("Brainrot") then
+            local targetCFrame
 
-        if brainrot:IsA("BasePart") then
-            targetCFrame = brainrot.CFrame
-        elseif brainrot:IsA("Model") then
-            -- Nếu là model, ưu tiên PrimaryPart
             if brainrot.PrimaryPart then
                 targetCFrame = brainrot.PrimaryPart.CFrame
             else
-                -- fallback: lấy 1 BasePart con bất kỳ
                 local part = brainrot:FindFirstChildWhichIsA("BasePart")
                 if part then
                     targetCFrame = part.CFrame
                 end
             end
-        end
 
-        if targetCFrame then
-            humanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 3, 0)
-            task.wait(0.5)
-        else
+            if targetCFrame then
+                humanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 3, 0)
+                task.wait(0.5)
+            end
         end
     end
 end
+
 
 
 -- ===================== UI trong TeleTab =====================
