@@ -369,7 +369,7 @@ local function PRICE_shouldSell(tool)
 end
 
 local function PRICE_sellNow()
-  if not autoPrice or not maxPrice or #selectedRarities == 0 then return end
+  if not maxPrice or #selectedRarities == 0 then return end
   for _, tool in ipairs(backpack:GetChildren()) do
     if tool:IsA("Tool") and PRICE_shouldSell(tool) then
       if SELL_equipTool(tool) then
@@ -444,7 +444,7 @@ local function PLANT_shouldSell(tool)
 end
 
 local function PLANT_sellNow()
-  if not autoPlant or not maxDamage or #selectedPlants == 0 then return end
+  if not maxDamage or #selectedPlants == 0 then return end
   for _, tool in ipairs(backpack:GetChildren()) do
     if tool:IsA("Tool") and PLANT_shouldSell(tool) then
       if SELL_equipTool(tool) then
