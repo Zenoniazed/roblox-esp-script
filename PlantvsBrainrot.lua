@@ -497,7 +497,7 @@ local SecPlant = SellTab:Section({ Title = "Auto Sell Plant" })
 
 SellTab:Dropdown({
     Title = "Select Plant",
-    List ={ "Cactus","Strawberry","Pumpkin","Sunflower",
+    List = { "Cactus","Strawberry","Pumpkin","Sunflower",
              "Dragon Fruit","Eggplant","Watermelon","Grape","Cocotank",
              "Carnivorous Plant","Mr Carrot","Tomatrio","Shroombino" },
     Multi = true,
