@@ -253,15 +253,6 @@ local function SELL_processTool(tool)
   SELL_processing[tool] = nil
 end
 
--- Event: pet mới thêm
-backpack.ChildAdded:Connect(function(obj)
-  if sellState.AutoSell and obj:IsA("Tool") then
-    task.spawn(function() SELL_processTool(obj) end)
-  end
-end)
-
-
-
 -- === UI: TAB RIÊNG CHO AUTO SELL ===
 local SellTab = Window:Tab({ Title = "Auto Sell", Icon = "recycle" })
 
@@ -378,19 +369,16 @@ local function PRICE_shouldSell(tool)
 end
 
 local function PRICE_sellNow()
-    if not autoPrice or not maxPrice or #selectedRarities == 0 then return end
-    for _, tool in ipairs(backpack:GetChildren()) do
-        if PRICE_shouldSell(tool) then
-            if SELL_equipTool(tool) then
-                pcall(function() ItemSell:FireServer(true) end)
-                task.wait(0.1)
-            end
-        end
+  if not autoPrice or not maxPrice or #selectedRarities == 0 then return end
+  for _, tool in ipairs(backpack:GetChildren()) do
+    if tool:IsA("Tool") and PRICE_shouldSell(tool) then
+      if SELL_equipTool(tool) then
+        pcall(function() ItemSell:FireServer(true) end)
+        task.wait(0.1)
+      end
     end
+  end
 end
-
-
-
 
 -- ===================== UI trong SellTab =====================
 local SecPrice = SellTab:Section({ Title = "Sell By Price" })
@@ -456,273 +444,6 @@ local function PLANT_shouldSell(tool)
 end
 
 local function PLANT_sellNow()
-    if not autoPlant or not maxDamage or #selectedPlants == 0 then return end
-    for _, tool in ipairs(backpack:GetChildren()) do
-        if PLANT_shouldSell(tool) then
-            if SELL_equipTool(tool) then
-                pcall(function() ItemSell:FireServer(true) end)
-                task.wait(0.1)
-            end
-        end
-    end
-end
-
--- 🌱 Plant Vs Brainrot – Auto Buy + Auto Sell (Brainrot + Price + Plant)
---   • Auto Buy Seeds/Items
---   • Auto Sell Brainrot
---   • Auto Sell By Price
---   • Auto Sell Plant
---   • Gộp loop quét backpack duy nhất + ChildAdded cho tất cả
---   • Safe check trong mỗi hàm => tránh bán nhầm
-
--- ========== UI lib ==========
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/Framework.lua", true))()
-
--- ========== Anti AFK ==========
-local Players = game:GetService("Players")
-local VirtualUser = game:GetService("VirtualUser")
-local player = Players.LocalPlayer
-
-player.Idled:Connect(function()
-    VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-    task.wait(1)
-    VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-end)
-
--- ========== Services ==========
-local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
--- ========== Auto Buy Seeds + Items ==========
-local SEEDS = {
-  "Cactus Seed","Strawberry Seed","Pumpkin Seed","Sunflower Seed",
-  "Dragon Fruit Seed","Eggplant Seed","Watermelon Seed","Grape Seed",
-  "Cocotank Seed","Carnivorous Plant Seed","Mr Carrot Seed","Tomatrio Seed","Shroombino Seed"
-}
-local ITEMS = { "Water Bucket","Frost Grenade","Banana Gun","Frost Blower","Carrot Launcher" }
-
-local buyState = { AutoBuySeeds=false, SelectedSeeds={}, AutoBuyItems=false, SelectedItems={} }
-local BUY_CONFIG = "AutoBuy_Config.json"
-
-local function buy_save()
-  if writefile then pcall(function() writefile(BUY_CONFIG, HttpService:JSONEncode(buyState)) end) end
-end
-local function buy_load()
-  if readfile and isfile and isfile(BUY_CONFIG) then
-    local ok, data = pcall(function() return HttpService:JSONDecode(readfile(BUY_CONFIG)) end)
-    if ok and type(data)=="table" then for k,v in pairs(data) do buyState[k]=v end end
-  end
-end
-buy_load()
-
-local function buySeedOnce(name)
-  pcall(function()
-    ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer({ name, "\8" })
-  end)
-end
-local function buyItemOnce(name)
-  pcall(function()
-    ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer({ name, "\26" })
-  end)
-end
-
-task.spawn(function()
-  while true do
-    if buyState.AutoBuySeeds then
-      local list = (table.find(buyState.SelectedSeeds,"All Seeds") and SEEDS) or buyState.SelectedSeeds
-      for _,s in ipairs(list) do buySeedOnce(s); task.wait(0.5) end
-    end
-    if buyState.AutoBuyItems then
-      local list = (table.find(buyState.SelectedItems,"All Items") and ITEMS) or buyState.SelectedItems
-      for _,it in ipairs(list) do buyItemOnce(it); task.wait(0.5) end
-    end
-    task.wait(1)
-  end
-end)
-
--- ========== UI ==========
-local Window = Library:Window({
-  Title = "🌱Plant Vs Brainrot",
-  Desc  = "By Hải Đẹp Zai",
-  Theme = "Amethyst",
-  Config = { Keybind = Enum.KeyCode.K, Size = UDim2.new(0, 400, 0, 300) },
-  CloseUIButton = { Enabled = true, Text = "ZEN" }
-})
-local Tab = Window:Tab({ Title = "Auto Buy", Icon = "star" })
-
--- Seeds
-Tab:Section({ Title = "Seeds" })
-local SeedDropdownList = { "All Seeds" }; for _,s in ipairs(SEEDS) do table.insert(SeedDropdownList,s) end
-Tab:Dropdown({
-  Title = "Select Seeds",
-  List = SeedDropdownList,
-  Multi = true,
-  Value = buyState.SelectedSeeds,
-  Callback = function(opts) buyState.SelectedSeeds=opts; buy_save() end
-})
-Tab:Toggle({
-  Title = "Auto Buy Seeds",
-  Value = buyState.AutoBuySeeds,
-  Callback = function(v) buyState.AutoBuySeeds=v; buy_save() end
-})
--- Items
-Tab:Section({ Title = "Items" })
-local ItemDropdownList = { "All Items" }; for _,it in ipairs(ITEMS) do table.insert(ItemDropdownList,it) end
-Tab:Dropdown({
-  Title = "Select Items",
-  List = ItemDropdownList,
-  Multi = true,
-  Value = buyState.SelectedItems,
-  Callback = function(opts) buyState.SelectedItems=opts; buy_save() end
-})
-Tab:Toggle({
-  Title = "Auto Buy Items",
-  Value = buyState.AutoBuyItems,
-  Callback = function(v) buyState.AutoBuyItems=v; buy_save() end
-})
-
--- =================================================================
--- ========== AUTO SELL (Brainrot + Price + Plant) =================
--- =================================================================
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-player.CharacterAdded:Connect(function(char) character = char end)
-local backpack = player:WaitForChild("Backpack")
-local ItemSell = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSell")
-
--- Brainrot
-local ATTR_RARITY, ATTR_MUTATION, ATTR_SIZE = "Rarity", "Mutation", "Size"
-local ALL_RARITIES = { "Rare","Epic","Legendary","Mythic","Godly","Secret","Limited" }
-local ALL_MUTS     = { "Gold","Diamond","Rainbow","Galactic","Frozen","Neon" }
-
-local sellState = {
-  AutoSell=false, OnlyBrainrot=true,
-  KeepRarities={ "Godly","Secret","Limited" },
-  GoodMutations={ "Gold","Diamond","Rainbow","Galactic","Frozen","Neon"},
-  MinSizeCommon=7, MinSizeMythic=2,
-  LoopDelay=2, PerItemDelay=0.15
-}
-
-local function SELL_toSet(list) local s={} for _,v in ipairs(list) do s[v]=true end return s end
-local function SELL_getNumberSize(raw)
-  if type(raw)=="number" then return raw end
-  if type(raw)=="string" then local n=tonumber(string.match(raw,"[%d%.]+")) return n or 0 end
-  return 0
-end
-
-local function SELL_findPetCore(tool)
-  for _, child in ipairs(tool:GetChildren()) do
-    if child:IsA("Model") or child:IsA("Folder") then
-      if child:GetAttribute(ATTR_RARITY) or child:GetAttribute(ATTR_MUTATION) or child:GetAttribute(ATTR_SIZE) ~= nil then
-        return child
-      end
-    end
-  end
-  return tool
-end
-
-local function SELL_equipTool(tool)
-  if not character or not character.Parent then return false end
-  for _, item in ipairs(character:GetChildren()) do
-    if item:IsA("Tool") then
-      item.Parent = backpack
-      task.wait(0.05)
-    end
-  end
-  tool.Parent = character
-  task.wait(0.15)
-  return true
-end
-
-local function SELL_sellEquipped()
-  if ItemSell and ItemSell:IsA("RemoteEvent") then
-    pcall(function() ItemSell:FireServer(true) end)
-  end
-end
-
-local SELL_processing = {}
-local function SELL_processTool(tool)
-  if not sellState.AutoSell or SELL_processing[tool] or not tool or not tool.Parent then return end
-  SELL_processing[tool] = true
-  task.wait(0.1)
-
-  if sellState.OnlyBrainrot and not tool:GetAttribute("Brainrot") then
-    SELL_processing[tool] = nil; return
-  end
-
-  local core = SELL_findPetCore(tool)
-  local rarity   = tostring(core:GetAttribute(ATTR_RARITY) or "Unknown")
-  local mutation = tostring(core:GetAttribute(ATTR_MUTATION) or "Normal")
-  local size     = SELL_getNumberSize(core:GetAttribute(ATTR_SIZE) or 0)
-
-  local keepR, goodM = SELL_toSet(sellState.KeepRarities), SELL_toSet(sellState.GoodMutations)
-  local doSell = false
-  if not keepR[rarity] then
-    if rarity == "Mythic" then
-      doSell = (not goodM[mutation]) and (size < sellState.MinSizeMythic)
-    elseif rarity=="Rare" or rarity=="Epic" or rarity=="Legendary" then
-      doSell = (size < sellState.MinSizeCommon)
-    else
-      doSell = true
-    end
-  end
-
-  if doSell then
-    if SELL_equipTool(tool) then
-      SELL_sellEquipped()
-      task.wait(sellState.PerItemDelay)
-    end
-  end
-  SELL_processing[tool] = nil
-end
-
--- Sell By Price
-local selectedRarities = {}
-local maxPrice = nil
-local autoPrice = false
-
-local function PRICE_isBrainrot(tool, core)
-  local v = tool and tool:GetAttribute("Brainrot")
-  if v == nil and core then v = core:GetAttribute("Brainrot") end
-  return v and true or false
-end
-
-local function PRICE_shouldSell(tool)
-  local core = SELL_findPetCore(tool); if not core then return false end
-  if not PRICE_isBrainrot(tool, core) then return false end
-  local rarity = core:GetAttribute("Rarity")
-  local worth  = core:GetAttribute("Worth")
-  if not rarity or not worth then return false end
-  local rarSet = {}; for _,r in ipairs(selectedRarities) do rarSet[r]=true end
-  return rarSet[rarity] and (tonumber(worth) or 0) < maxPrice
-end
-
-local function PRICE_sellNow()
-  if not autoPrice or not maxPrice or #selectedRarities == 0 then return end
-  for _, tool in ipairs(backpack:GetChildren()) do
-    if tool:IsA("Tool") and PRICE_shouldSell(tool) then
-      if SELL_equipTool(tool) then
-        pcall(function() ItemSell:FireServer(true) end)
-        task.wait(0.1)
-      end
-    end
-  end
-end
-
--- Sell Plant
-local selectedPlants = {}
-local maxDamage = nil
-local autoPlant = false
-
-local function PLANT_shouldSell(tool)
-  local plantName = tool:GetAttribute("Plant") or tool:GetAttribute("ItemName")
-  local damage = tool:GetAttribute("Damage")
-  if not plantName or not damage then return false end
-  local set={}; for _,p in ipairs(selectedPlants) do set[p]=true end
-  return set[plantName] and (tonumber(damage) or 0) <= (maxDamage or 0)
-end
-
-local function PLANT_sellNow()
   if not autoPlant or not maxDamage or #selectedPlants == 0 then return end
   for _, tool in ipairs(backpack:GetChildren()) do
     if tool:IsA("Tool") and PLANT_shouldSell(tool) then
@@ -756,23 +477,6 @@ task.spawn(function()
     task.wait(2)
   end
 end)
-
-
-
--- Loop gộp duy nhất
-task.spawn(function()
-  while true do
-    for _, tool in ipairs(backpack:GetChildren()) do
-      if tool:IsA("Tool") then
-        task.spawn(SELL_processTool, tool)
-        task.spawn(PRICE_sellNow)
-        task.spawn(PLANT_sellNow)
-      end
-    end
-    task.wait(2)
-  end
-end)
-
 
 -- ===================== UI trong SellTab =====================
 local SecPlant = SellTab:Section({ Title = "Auto Sell Plant" })
@@ -925,7 +629,3 @@ TeleTab:Button({
         TeleportService:Teleport(game.PlaceId, player)
     end
 })
-
-
-
-
