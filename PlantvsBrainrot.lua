@@ -37,8 +37,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Danh sách
 local SEEDS = {
   "Cactus Seed","Strawberry Seed","Pumpkin Seed","Sunflower Seed",
-  "Dragon Fruit Seed","Eggplant Seed","Watermelon Seed","Cocotank Seed",
-  "Carnivorous Plant Seed","Mr Carrot Seed","Tomatrio Seed"
+  "Dragon Fruit Seed","Eggplant Seed","Watermelon Seed","Grape Seed","Cocotank Seed",
+  "Carnivorous Plant Seed","Mr Carrot Seed","Tomatrio Seed","Shroombino Seed"
 }
 local ITEMS = { "Water Bucket","Frost Grenade","Banana Gun","Frost Blower","Carrot Launcher" }
 
@@ -361,6 +361,7 @@ SellTab:Textbox({
 local selectedRarities = {}
 local maxPrice = nil
 local onlyBrainrot = true
+local autoPrice = false   -- trạng thái toggle
 
 local function PRICE_isBrainrot(tool, core)
     local v = tool and tool.GetAttribute and tool:GetAttribute("Brainrot")
@@ -397,8 +398,17 @@ local function PRICE_sellNow()
     end
 end
 
--- ===================== UI trong SellTab =====================
+-- Auto loop khi toggle bật
+task.spawn(function()
+    while true do
+        if autoPrice and maxPrice and #selectedRarities > 0 then
+            PRICE_sellNow()
+        end
+        task.wait(2) -- delay scan (có thể chỉnh)
+    end
+end)
 
+-- ===================== UI trong SellTab =====================
 local SecPrice = SellTab:Section({ Title = "Sell By Price" })
 
 SellTab:Dropdown({
@@ -412,7 +422,7 @@ SellTab:Dropdown({
 })
 
 SellTab:Textbox({
-    Title = "Min Price",
+    Title = "Max Price",
     Placeholder = "0",
     Value = "",
     Callback = function(txt)
@@ -431,6 +441,15 @@ SellTab:Button({
         PRICE_sellNow()
     end
 })
+
+SellTab:Toggle({
+    Title = "Auto Sell By Price",
+    Value = false,
+    Callback = function(v)
+        autoPrice = v
+    end
+})
+
 
 -- ========== Tab Auto Tele Collect ==========
 local TeleTab = Window:Tab({ Title = "Auto Collect", Icon = "coins" })
