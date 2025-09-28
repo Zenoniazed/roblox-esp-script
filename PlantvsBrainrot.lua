@@ -61,12 +61,12 @@ buy_load()
 -- Vòng lặp
 local function buySeedOnce(name)
   pcall(function()
-    ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer({ name, "\a" })
+    ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer({ name, "\8" })
   end)
 end
 local function buyItemOnce(name)
   pcall(function()
-    ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer({ name, " " })
+    ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer({ name, "\26" })
   end)
 end
 
