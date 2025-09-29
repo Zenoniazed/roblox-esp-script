@@ -61,12 +61,12 @@ buy_load()
 -- Vòng lặp
 local function buySeedOnce(name)
   pcall(function()
-    ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyItem"):FireServer({ name })
+    ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyItem"):FireServer(name)
   end)
 end
 local function buyItemOnce(name)
   pcall(function()
-    ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyGear"):FireServer({ name})
+    ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyGear"):FireServer(name)
   end)
 end
 
