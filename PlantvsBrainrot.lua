@@ -38,7 +38,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SEEDS = {
   "Cactus Seed","Strawberry Seed","Pumpkin Seed","Sunflower Seed",
   "Dragon Fruit Seed","Eggplant Seed","Watermelon Seed","Grape Seed","Cocotank Seed",
-  "Carnivorous Plant Seed","Mr Carrot Seed","Tomatrio Seed","Shroombino Seed"
+  "Carnivorous Plant Seed","Mr Carrot Seed","Tomatrio Seed","Shroombino Seed","Mango Seed"
 }
 local ITEMS = { "Water Bucket","Frost Grenade","Banana Gun","Frost Blower","Carrot Launcher" }
 
