@@ -157,6 +157,7 @@ local sellState = {
   PerItemDelay     = 0.15
 }
 
+
 -- Save/Load riêng cho Auto Sell
 local function sell_save()
   if writefile then pcall(function() writefile(SELL_CONFIG, HttpService:JSONEncode(sellState)) end) end
@@ -178,15 +179,32 @@ local function SELL_getNumberSize(raw)
 end
 
 local function SELL_shouldSell(rarity, mutation, sizeVal)
-  local keepR, goodM = SELL_toSet(sellState.KeepRarities), SELL_toSet(sellState.GoodMutations)
-  if keepR[rarity] then return false end
-  if rarity == "Mythic" then
-    return (not goodM[mutation]) and (sizeVal < sellState.MinSizeMythic)
-  end
-  if  rarity=="Rare" or rarity=="Epic" or rarity=="Legendary" then
-    return (sizeVal < sellState.MinSizeCommon)
-  end
-  return true
+	local keepR, goodM = SELL_toSet(sellState.KeepRarities), SELL_toSet(sellState.GoodMutations)
+
+	-- Nếu độ hiếm nằm trong danh sách cần giữ -> Không bán
+	if keepR[rarity] then return false end
+
+	-- Xử lý riêng Mythic
+	if rarity == "Mythic" or rarity == "Godly"  then
+		-- Nếu có mutation (bất kỳ) và size nhỏ hơn ngưỡng -> bán luôn
+		if mutation ~= "Normal" and sizeVal < sellState.MinSizeMythic then
+			return true
+		end
+		-- Nếu mutation không nằm trong danh sách tốt và size nhỏ hơn ngưỡng -> bán
+		if (not goodM[mutation]) and (sizeVal < sellState.MinSizeMythic) then
+			return true
+		end
+		-- Còn lại giữ
+		return false
+	end
+
+	-- Rare / Epic / Legendary
+	if rarity == "Rare" or rarity == "Epic" or rarity == "Legendary" then
+		return (sizeVal < sellState.MinSizeCommon)
+	end
+
+	-- Common và các loại khác -> luôn bán
+	return true
 end
 
 -- Tìm core chứa attribute (fallback: tool)
@@ -300,7 +318,7 @@ SellTab:Dropdown({
 })
 
 SellTab:Dropdown({
-  Title = "Mutations For Mythic",
+  Title = "Mutations Mythic Godly",
   List = ALL_MUTS,
   Multi = true,
   Value = sellState.GoodMutations,
@@ -324,7 +342,7 @@ SellTab:Textbox({
 })
 
 SellTab:Textbox({
-  Title = "Size Mythic (Below)",
+  Title = "Size Mythic Godly (Below)",
   Placeholder = tostring(sellState.MinSizeMythic*10),
   Value = "",
   Callback = function(txt)
