@@ -5,12 +5,21 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local VIM = game:GetService("VirtualInputManager")
 
--- ⭐ Giữ mobile UI luôn bật
+local SG = game:GetService("StarterGui")
 local UIS = game:GetService("UserInputService")
-pcall(function()
-    UIS.TouchEnabled = true
-    UIS.KeyboardEnabled = false
-end)
+
+local function restoreMobileUI()
+	pcall(function()
+		UIS.TouchEnabled = true
+		UIS.KeyboardEnabled = false
+		UIS.MouseEnabled = false
+	end)
+
+	pcall(function()
+		SG:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
+	end)
+end
+
 
 local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -415,8 +424,8 @@ local function autoOpen()
 			safeTeleport(interactPart)
 
 			-- NHẤN E
-			-- pressE()
-
+			pressE()
+			restoreMobileUI()
 			-- SIÊU NHANH
 			task.wait(SUPER_FAST_DELAY)
 		end
