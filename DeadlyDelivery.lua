@@ -649,3 +649,5 @@ lootBtn.MouseButton1Click:Connect(function()
 		task.spawn(autoLootLoop)
 	end
 end)
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/DeadlyDelivery2.lua", true))()
