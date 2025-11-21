@@ -245,21 +245,10 @@ updateList()
 -- PRESS E (KHÔNG NHÂN ĐÔI)
 ---------------------------------------------------------------------
 local function pressE()
-    -- ⭐ Không ép game sang chế độ PC
-    -- ButtonX = nút nhặt trên mobile
-    VIM:SendKeyEvent(true, Enum.KeyCode.ButtonX, false, game)
-    task.wait(0.05)
-    VIM:SendKeyEvent(false, Enum.KeyCode.ButtonX, false, game)
-
-    -- ⭐ Ép game trở lại mobile UI (Touch mode)
-    pcall(function()
-        local UIS = game:GetService("UserInputService")
-        UIS.TouchEnabled = true
-        UIS.KeyboardEnabled = false
-        UIS.MouseEnabled = false
-    end)
+	VIM:SendKeyEvent(true, "E", false, game)
+	task.wait(0.05)
+	VIM:SendKeyEvent(false, "E", false, game)
 end
-
 
 local function getSafePart(obj)
 	if not obj then return nil end
@@ -313,7 +302,9 @@ local function safeTeleportPro(targetCFrame)
 	end
 
 	-- ĐẶT NHÂN VẬT
-	hrp.CFrame = targetCFrame)
+	hrp.CFrame = targetCFrame
+
+	task.wait(0.05)
 
 	-- GỠ ANCHOR
 	hrp.Anchored = false
@@ -403,6 +394,7 @@ local function autoOpen()
 
 			-- NHẤN E
 			pressE()
+
 			-- SIÊU NHANH
 			task.wait(SUPER_FAST_DELAY)
 		end
