@@ -415,7 +415,7 @@ local function autoOpen()
 			safeTeleport(interactPart)
 
 			-- NHẤN E
-			pressE()
+			-- pressE()
 
 			-- SIÊU NHANH
 			task.wait(SUPER_FAST_DELAY)
@@ -639,7 +639,7 @@ local function autoLootLoop()
 				task.wait(0.1)
 				faceCameraTo(safe)
 				task.wait(0.25)
-				pressE()
+				-- pressE()
 			end
 
 
