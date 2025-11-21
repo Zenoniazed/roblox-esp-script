@@ -113,11 +113,11 @@ MonstersFolder.ChildRemoved:Connect(removeESP)
 ------------------------------------------------------------
 -- RADAR SYSTEM
 ------------------------------------------------------------
-local MAP_SIZE = 200
+local MAP_SIZE = 250
 local SCALE = 1
-local MONSTER_DOT_SIZE = 5
-local ARROW_SIZE = 5
-local ALERT_DISTANCE = 35
+local MONSTER_DOT_SIZE = 3
+local ARROW_SIZE = 3
+local ALERT_DISTANCE = 30
 
 local RadarGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
 RadarGui.IgnoreGuiInset = true
