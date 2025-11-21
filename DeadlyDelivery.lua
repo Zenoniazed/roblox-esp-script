@@ -5,6 +5,13 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local VIM = game:GetService("VirtualInputManager")
 
+-- ⭐ Giữ mobile UI luôn bật
+local UIS = game:GetService("UserInputService")
+pcall(function()
+    UIS.TouchEnabled = true
+    UIS.KeyboardEnabled = false
+end)
+
 local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
@@ -245,10 +252,21 @@ updateList()
 -- PRESS E (KHÔNG NHÂN ĐÔI)
 ---------------------------------------------------------------------
 local function pressE()
-	VIM:SendKeyEvent(true, "E", false, game)
-	task.wait(0.05)
-	VIM:SendKeyEvent(false, "E", false, game)
+    -- ⭐ Không ép game sang chế độ PC
+    -- ButtonX = nút nhặt trên mobile
+    VIM:SendKeyEvent(true, Enum.KeyCode.ButtonX, false, game)
+    task.wait(0.05)
+    VIM:SendKeyEvent(false, Enum.KeyCode.ButtonX, false, game)
+
+    -- ⭐ Ép game trở lại mobile UI (Touch mode)
+    pcall(function()
+        local UIS = game:GetService("UserInputService")
+        UIS.TouchEnabled = true
+        UIS.KeyboardEnabled = false
+        UIS.MouseEnabled = false
+    end)
 end
+
 
 local function getSafePart(obj)
 	if not obj then return nil end
@@ -304,6 +322,10 @@ local function safeTeleportPro(targetCFrame)
 	-- ĐẶT NHÂN VẬT
 	hrp.CFrame = targetCFrame
 
+	pcall(function()
+    UIS.TouchEnabled = true
+    UIS.KeyboardEnabled = false
+	end)
 	task.wait(0.05)
 
 	-- GỠ ANCHOR
