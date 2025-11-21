@@ -16,7 +16,7 @@ local LootWorld = workspace.GameSystem.Loots.World
 local returnPoint = workspace["\231\148\181\230\162\175"].Left4:GetChildren()[2]
 
 ---------------------------------------------------------------------
--- UI GỌN + KÉO THẢ
+-- UI GỌN + KÉO THẢ (MOBILE FIX)
 ---------------------------------------------------------------------
 local gui = Instance.new("ScreenGui")
 gui.Name = "LootBoard"
@@ -32,12 +32,23 @@ main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 main.BorderSizePixel = 0
 Instance.new("UICorner", main)
 
--- HEADER (kéo)
+-- **MOBILE FIX: Không block Joystick**
+main.Active = false
+main.Selectable = false
+main.ClipsDescendants = false
+main.ZIndex = 1
+
+-- HEADER
 local header = Instance.new("Frame", main)
 header.Size = UDim2.new(1, 0, 0, 32)
 header.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 header.BorderSizePixel = 0
 Instance.new("UICorner", header)
+
+-- **HEADER nhận input để kéo**
+header.Active = true
+header.Selectable = true
+header.ZIndex = 999
 
 local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(1, -20, 1, 0)
@@ -49,7 +60,7 @@ title.BackgroundTransparency = 1
 title.TextXAlignment = Enum.TextXAlignment.Left
 
 ---------------------------------------------------------------------
--- DRAG UI (PC + MOBILE)
+-- DRAG UI (PC + MOBILE FIX)
 ---------------------------------------------------------------------
 local dragging = false
 local dragStart, uiStart
@@ -60,9 +71,7 @@ local function beginDrag(input)
 	uiStart = main.Position
 end
 
-local function endDrag()
-	dragging = false
-end
+local function endDrag() dragging = false end
 
 local function updateDrag(input)
 	if dragging then
@@ -73,41 +82,44 @@ local function updateDrag(input)
 			uiStart.Y.Scale,
 			uiStart.Y.Offset + delta.Y
 		)
+
+		-- **Giới hạn UI trong màn hình (mobile fix mất nút game)**
+		local screen = workspace.CurrentCamera.ViewportSize
+		local x = main.AbsolutePosition.X
+		local y = main.AbsolutePosition.Y
+		local w = main.AbsoluteSize.X
+		local h = main.AbsoluteSize.Y
+
+		if x < 0 then main.Position = UDim2.new(0,0, main.Position.Y.Scale, main.Position.Y.Offset) end
+		if y < 0 then main.Position = UDim2.new(main.Position.X.Scale, main.Position.X.Offset, 0, 0) end
+		if x + w > screen.X then main.Position = UDim2.new(0, screen.X - w, main.Position.Y.Scale, main.Position.Y.Offset) end
+		if y + h > screen.Y then main.Position = UDim2.new(main.Position.X.Scale, main.Position.X.Offset, 0, screen.Y - h) end
 	end
 end
 
--- PC: MouseButton1
 header.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		beginDrag(input)
-	end
-end)
-
--- MOBILE: TouchInput
-header.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
+	if input.UserInputType == Enum.UserInputType.MouseButton1 
+	or input.UserInputType == Enum.UserInputType.Touch then
 		beginDrag(input)
 	end
 end)
 
 header.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 
+	if input.UserInputType == Enum.UserInputType.MouseButton1
 	or input.UserInputType == Enum.UserInputType.Touch then
 		endDrag()
 	end
 end)
 
--- Update cho cả chuột + mobile
 UIS.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement 
+	if input.UserInputType == Enum.UserInputType.MouseMovement
 	or input.UserInputType == Enum.UserInputType.Touch then
 		updateDrag(input)
 	end
 end)
 
-
 ---------------------------------------------------------------------
--- LOOT LIST UI
+-- SCROLL LIST LOOT
 ---------------------------------------------------------------------
 local scroll = Instance.new("ScrollingFrame", main)
 scroll.Position = UDim2.new(0, 0, 0, 32)
@@ -137,7 +149,6 @@ local function teleportBack()
 	local target = returnPoint.PrimaryPart 
 				or returnPoint:FindFirstChildWhichIsA("BasePart") 
 				or returnPoint
-
 	hrp.CFrame = target.CFrame * CFrame.new(0, 0, -2)
 end
 
@@ -239,26 +250,6 @@ local function pressE()
 	VIM:SendKeyEvent(false, "E", false, game)
 end
 
----------------------------------------------------------------------
--- HÀM SAFE TELEPORT
----------------------------------------------------------------------
--- task.spawn(function()
--- 	while true do
--- 		pcall(function()
--- 			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
--- 			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
--- 			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
--- 		end)
--- 		task.wait(0.5)
--- 	end
--- end)
--- local function testtele(part)
--- 	hrp.Anchored = true
--- 	hrp.CFrame = part.CFrame * CFrame.new(0, 1, 0)
--- 	task.wait(0.05)
--- 	hrp.Anchored = false
--- end
-
 local function getSafePart(obj)
 	if not obj then return nil end
 
@@ -325,6 +316,25 @@ local function safeTeleportPro(targetCFrame)
 end
 
 
+local SUPER_FAST_DELAY = 0.2
+local NO_ROTATION = false 
+
+-----------------------------------------------------------------
+-- TELE AN TOÀN (KHÔNG XOAY)
+-----------------------------------------------------------------
+local function safeTeleport(part)
+	local pos = part.CFrame * CFrame.new(0, 0, 0)  -- Cao 4, lùi 4 → không bao giờ ngã
+
+	hrp.Anchored = true
+	hrp.CFrame = pos
+	task.wait(0.03)
+	hrp.Anchored = false
+
+	if NO_ROTATION == false then
+		task.wait(0.03)
+		hrp.CFrame = CFrame.new(hrp.Position, part.Position)
+	end
+end
 ---------------------------------------------------------------------
 -- AUTO OPEN TỦ / CRATE
 ---------------------------------------------------------------------
@@ -376,15 +386,18 @@ local function autoOpen()
 	for _, obj in ipairs(getAllInteractables()) do
 		if not autoOpening then break end
 
-		local t = obj:FindFirstChild("Interactable")
-		local part = getSafePart(t)
+		local interactPart = obj:FindFirstChild("Interactable")
+		if interactPart then
 
-		if part then
-			safeTeleportPro(part.CFrame + Vector3.new(0, 0, 0))
+			-- TELE NHANH
+			safeTeleport(interactPart)
+
+			-- NHẤN E
 			pressE()
-			task.wait(0.3)
-end
 
+			-- SIÊU NHANH
+			task.wait(SUPER_FAST_DELAY)
+		end
 	end
 
 	autoOpening = false
