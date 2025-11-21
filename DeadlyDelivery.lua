@@ -48,26 +48,24 @@ title.Font = Enum.Font.GothamBold
 title.BackgroundTransparency = 1
 title.TextXAlignment = Enum.TextXAlignment.Left
 
--- DRAG UI
+---------------------------------------------------------------------
+-- DRAG UI (PC + MOBILE)
+---------------------------------------------------------------------
 local dragging = false
 local dragStart, uiStart
 
-header.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		uiStart = main.Position
-	end
-end)
+local function beginDrag(input)
+	dragging = true
+	dragStart = input.Position
+	uiStart = main.Position
+end
 
-header.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
-end)
+local function endDrag()
+	dragging = false
+end
 
-UIS.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+local function updateDrag(input)
+	if dragging then
 		local delta = input.Position - dragStart
 		main.Position = UDim2.new(
 			uiStart.X.Scale,
@@ -76,7 +74,37 @@ UIS.InputChanged:Connect(function(input)
 			uiStart.Y.Offset + delta.Y
 		)
 	end
+end
+
+-- PC: MouseButton1
+header.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		beginDrag(input)
+	end
 end)
+
+-- MOBILE: TouchInput
+header.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		beginDrag(input)
+	end
+end)
+
+header.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 
+	or input.UserInputType == Enum.UserInputType.Touch then
+		endDrag()
+	end
+end)
+
+-- Update cho cả chuột + mobile
+UIS.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement 
+	or input.UserInputType == Enum.UserInputType.Touch then
+		updateDrag(input)
+	end
+end)
+
 
 ---------------------------------------------------------------------
 -- LOOT LIST UI
