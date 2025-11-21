@@ -13,7 +13,7 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- LOOT & RETURN LOCATION
 ---------------------------------------------------------------------
 local LootWorld = workspace.GameSystem.Loots.World
-local returnPoint = workspace["\231\148\181\230\162\175"].Left4.DoorController
+local returnPoint = workspace["\231\148\181\230\162\175"].Left4:GetChildren()[2]
 
 ---------------------------------------------------------------------
 -- UI GỌN + KÉO THẢ
@@ -214,22 +214,88 @@ end
 ---------------------------------------------------------------------
 -- HÀM SAFE TELEPORT
 ---------------------------------------------------------------------
-task.spawn(function()
-	while true do
-		pcall(function()
-			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
-		end)
-		task.wait(0.5)
+-- task.spawn(function()
+-- 	while true do
+-- 		pcall(function()
+-- 			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+-- 			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+-- 			char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+-- 		end)
+-- 		task.wait(0.5)
+-- 	end
+-- end)
+-- local function testtele(part)
+-- 	hrp.Anchored = true
+-- 	hrp.CFrame = part.CFrame * CFrame.new(0, 1, 0)
+-- 	task.wait(0.05)
+-- 	hrp.Anchored = false
+-- end
+
+local function getSafePart(obj)
+	if not obj then return nil end
+
+	-- 1. Nếu bản thân obj là BasePart
+	if obj:IsA("BasePart") then
+		return obj
 	end
-end)
-local function safeTeleport(part)
-	hrp.Anchored = true
-	hrp.CFrame = part.CFrame * CFrame.new(0, 0, 0)
-	task.wait(0.03)
-	hrp.Anchored = false
+
+	-- 2. Nếu có PrimaryPart
+	if obj.PrimaryPart then
+		return obj.PrimaryPart
+	end
+
+	-- 3. Tìm BasePart trực tiếp
+	local first = obj:FindFirstChildWhichIsA("BasePart")
+	if first then return first end
+
+	-- 4. Tìm BasePart trong mọi con
+	for _, d in ipairs(obj:GetDescendants()) do
+		if d:IsA("BasePart") then
+			return d
+		end
+	end
+
+	return nil
 end
+
+local function safeTeleportPro(targetCFrame)
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	-- TẮT ragdoll
+	pcall(function()
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+	end)
+
+	-- RESET speed
+	hrp.Velocity = Vector3.zero
+	hrp.AssemblyLinearVelocity = Vector3.zero
+	hrp.AssemblyAngularVelocity = Vector3.zero
+
+	-- ANCHOR
+	hrp.Anchored = true
+
+	-- NẾU VỊ TRÍ QUÁ THẤP → TỰ SỬA
+	if targetCFrame.Y < 6 then
+		targetCFrame = CFrame.new(targetCFrame.X, 6, targetCFrame.Z)
+	end
+
+	-- ĐẶT NHÂN VẬT
+	hrp.CFrame = targetCFrame
+
+	task.wait(0.05)
+
+	-- GỠ ANCHOR
+	hrp.Anchored = false
+
+	-- CHỐNG RƠI SAU KHI TP
+	task.wait(0.02)
+	hrp.Velocity = Vector3.zero
+	hrp.AssemblyLinearVelocity = Vector3.zero
+end
+
 
 ---------------------------------------------------------------------
 -- AUTO OPEN TỦ / CRATE
@@ -283,16 +349,19 @@ local function autoOpen()
 		if not autoOpening then break end
 
 		local t = obj:FindFirstChild("Interactable")
-		if t then
-			safeTeleport(t)
+		local part = getSafePart(t)
+
+		if part then
+			safeTeleportPro(part.CFrame + Vector3.new(0, 0, 0))
 			pressE()
-			task.wait(0.2)
-		end
+			task.wait(0.3)
+end
+
 	end
 
 	autoOpening = false
 	teleportBack()
-	autoOpenBtn.Text = "▶ Auto Mở "
+	autoOpenBtn.Text = "▶ Auto Mở"
 end
 
 autoOpenBtn.MouseButton1Click:Connect(function()
@@ -344,20 +413,21 @@ end
 
 local function waitForInventoryClear()
 	while isInventoryFull() do
-		task.wait(0.8)
+		task.wait(1)
 	end
 end
 
 local function waitForHandsFree()
 	while isHandsFull() do
-		task.wait(0.8)
+		task.wait(1)
 	end
 end
 
 -- DANH SÁCH LOẠI TRỪ
 local excludeItems = {
-  ["Teleport"] = true,
-  ["Flashlight"] = true,
+	["Cash"] = true,
+	["Bloxy Cola"] = true,
+	["Bandage"] = true,
 }
 
 -- FILTER GIÁ NÂNG CAO
@@ -392,34 +462,67 @@ filterBtn.MouseButton1Click:Connect(function()
 	filterBtn.Text = "🎚 Lọc giá: " .. currentFilter
 end)
 
+local function getMaxPrice()
+    local maxVal = 0
+    for _, loot in ipairs(LootWorld:GetChildren()) do
+        local ui = getLootUI(loot)
+        if ui then
+            local p = extractPrice(ui.Price.Text)
+            if p and p > maxVal then
+                maxVal = p
+            end
+        end
+    end
+    return maxVal
+end
+
+
 -- Lấy danh sách loot
 local function getAllLootParts()
-	local list = {}
-	for _, loot in ipairs(LootWorld:GetChildren()) do
-		local ui = getLootUI(loot)
-		if ui then
-			local name = ui.ItemName.Text
-			local price = extractPrice(ui.Price.Text)
+    local list = {}
+    local maxPrice = 0
 
-			if name and excludeItems[name] then
-				continue
-			end
-			if price then
-				if currentFilter == "MAX ONLY" then
-					table.insert(list, {loot=loot, part=loot.PrimaryPart or loot:FindFirstChildWhichIsA("BasePart"), price=price})
-				elseif price >= priceFilters[currentFilter] then
-					table.insert(list, {loot=loot, part=loot.PrimaryPart or loot:FindFirstChildWhichIsA("BasePart"), price=price})
-				end
-			end
-		end
-	end
+    if currentFilter == "MAX ONLY" then
+        maxPrice = getMaxPrice()
+    end
 
-	if currentFilter == "MAX ONLY" then
-		table.sort(list, function(a,b) return a.price > b.price end)
-	end
+    for _, loot in ipairs(LootWorld:GetChildren()) do
+        local ui = getLootUI(loot)
+        if ui then
+            local name = ui.ItemName.Text
+            local price = extractPrice(ui.Price.Text)
 
-	return list
+            if excludeItems[name] then
+                continue
+            end
+
+            if price then
+                if currentFilter == "MAX ONLY" then
+                    if price == maxPrice then
+                        table.insert(list, {
+                            loot = loot,
+                            part = loot.PrimaryPart or loot:FindFirstChildWhichIsA("BasePart"),
+                            price = price
+                        })
+                    end
+                elseif price >= priceFilters[currentFilter] then
+                    table.insert(list, {
+                        loot = loot,
+                        part = loot.PrimaryPart or loot:FindFirstChildWhichIsA("BasePart"),
+                        price = price
+                    })
+                end
+            end
+        end
+    end
+
+    table.sort(list, function(a, b)
+        return a.price > b.price
+    end)
+
+    return list
 end
+
 
 ---------------------------------------------------------------------
 -- AUTO LOOT UI
@@ -460,29 +563,32 @@ local function autoLootLoop()
 		if #loots == 0 then
 			print("[AUTO LOOT] Không còn loot phù hợp → Tele về base")
 			teleportBack()
-			task.wait(1)   -- wait nhẹ cho loot mới spawn
-			continue        -- tiếp vòng lặp
+			autoLooting = false    -- tiếp vòng lặp
+			lootBtn.Text = "💰 Auto Loot"
 		end
 
 		for _, item in ipairs(loots) do
 			if not autoLooting then break end
 
-			local part = item.part
-			if part then
-				safeTeleport(part)
+			local safe = getSafePart(item.loot)
+			if safe then
+				safeTeleportPro(safe.CFrame + Vector3.new(0, 1, 0))
 				task.wait(0.1)
-				faceCameraTo(part) 
+				faceCameraTo(safe)
 				task.wait(0.25)
 				pressE()
 			end
 
+
 			if isHandsFull() then
 				teleportBack()
+				task.wait(0.5)
 				waitForHandsFree()
 			end
 
 			if isInventoryFull() then
 				teleportBack()
+				task.wait(0.5)
 				waitForInventoryClear()
 			end
 
