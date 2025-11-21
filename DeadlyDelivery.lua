@@ -5,22 +5,6 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local VIM = game:GetService("VirtualInputManager")
 
-local SG = game:GetService("StarterGui")
-local UIS = game:GetService("UserInputService")
-
-local function restoreMobileUI()
-	pcall(function()
-		UIS.TouchEnabled = true
-		UIS.KeyboardEnabled = false
-		UIS.MouseEnabled = false
-	end)
-
-	pcall(function()
-		SG:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
-	end)
-end
-
-
 local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
@@ -166,7 +150,6 @@ local function teleportBack()
 				or returnPoint:FindFirstChildWhichIsA("BasePart") 
 				or returnPoint
 	hrp.CFrame = target.CFrame * CFrame.new(0, 0, -2)
-	restoreMobileUI()
 end
 
 backBtn.MouseButton1Click:Connect(teleportBack)
@@ -245,7 +228,6 @@ local function updateList()
 			local part = item.loot.PrimaryPart or item.loot:FindFirstChildWhichIsA("BasePart")
 			if part then
 				hrp.CFrame = part.CFrame * CFrame.new(0, 2, 0)
-				restoreMobileUI()
 			end
 		end)
 	end
@@ -331,14 +313,7 @@ local function safeTeleportPro(targetCFrame)
 	end
 
 	-- ĐẶT NHÂN VẬT
-	hrp.CFrame = targetCFrame
-	restoreMobileUI()
-
-	pcall(function()
-    UIS.TouchEnabled = true
-    UIS.KeyboardEnabled = false
-	end)
-	task.wait(0.05)
+	hrp.CFrame = targetCFrame)
 
 	-- GỠ ANCHOR
 	hrp.Anchored = false
@@ -361,14 +336,12 @@ local function safeTeleport(part)
 
 	hrp.Anchored = true
 	hrp.CFrame = pos
-	restoreMobileUI()
 	task.wait(0.03)
 	hrp.Anchored = false
 
 	if NO_ROTATION == false then
 		task.wait(0.03)
 		hrp.CFrame = CFrame.new(hrp.Position, part.Position)
-		restoreMobileUI()
 	end
 end
 ---------------------------------------------------------------------
@@ -430,7 +403,6 @@ local function autoOpen()
 
 			-- NHẤN E
 			pressE()
-			restoreMobileUI()
 			-- SIÊU NHANH
 			task.wait(SUPER_FAST_DELAY)
 		end
@@ -653,7 +625,7 @@ local function autoLootLoop()
 				task.wait(0.1)
 				faceCameraTo(safe)
 				task.wait(0.25)
-				-- pressE()
+				pressE()
 			end
 
 
