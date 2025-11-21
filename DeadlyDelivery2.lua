@@ -113,7 +113,7 @@ MonstersFolder.ChildRemoved:Connect(removeESP)
 ------------------------------------------------------------
 -- RADAR SYSTEM
 ------------------------------------------------------------
-local MAP_SIZE = 250
+local MAP_SIZE = 150
 local SCALE = 1
 local MONSTER_DOT_SIZE = 3
 local ARROW_SIZE = 3
