@@ -166,6 +166,7 @@ local function teleportBack()
 				or returnPoint:FindFirstChildWhichIsA("BasePart") 
 				or returnPoint
 	hrp.CFrame = target.CFrame * CFrame.new(0, 0, -2)
+	restoreMobileUI()
 end
 
 backBtn.MouseButton1Click:Connect(teleportBack)
@@ -244,6 +245,7 @@ local function updateList()
 			local part = item.loot.PrimaryPart or item.loot:FindFirstChildWhichIsA("BasePart")
 			if part then
 				hrp.CFrame = part.CFrame * CFrame.new(0, 2, 0)
+				restoreMobileUI()
 			end
 		end)
 	end
@@ -330,6 +332,7 @@ local function safeTeleportPro(targetCFrame)
 
 	-- ĐẶT NHÂN VẬT
 	hrp.CFrame = targetCFrame
+	restoreMobileUI()
 
 	pcall(function()
     UIS.TouchEnabled = true
@@ -358,12 +361,14 @@ local function safeTeleport(part)
 
 	hrp.Anchored = true
 	hrp.CFrame = pos
+	restoreMobileUI()
 	task.wait(0.03)
 	hrp.Anchored = false
 
 	if NO_ROTATION == false then
 		task.wait(0.03)
 		hrp.CFrame = CFrame.new(hrp.Position, part.Position)
+		restoreMobileUI()
 	end
 end
 ---------------------------------------------------------------------
