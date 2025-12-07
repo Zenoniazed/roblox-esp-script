@@ -186,6 +186,8 @@ local function SwingRemote(toolName)
     end)
 end
 
+
+
 --====================================================
 -- MODULE 1 — AUTO MOB
 --====================================================
@@ -216,15 +218,22 @@ local DialogueOpened = false
 
 
 local MOB_LIST = {
-    "Skeleton Rogue",
     "Axe Skeleton",
+    "Blazing Slime",
+    "Blight Pyromancer",
+    "Bomber",
+    "Brute Zombie",
     "Deathaxe Skeleton",
-	"Bomber",
+    "Delver Zombie",
     "Elite Deathaxe Skeleton",
     "Elite Rogue Skeleton",
+    "EliteZombie",
+    "MinerZombie",
     "Reaper",
-    "Blazing Slime",
+    "Skeleton Rogue",
     "Slime",
+    "Zombie",
+    "Zombie3",
 }
 
 local function ensureBV_Mob()
@@ -371,9 +380,21 @@ TabMain:Slider({
 
 
 local ROCK_TYPES = {
-    "Basalt","Basalt Core","Basalt Rock","Basalt Vein",
-    "Earth Crystal","Cyan Crystal","Violet Crystal",
-    "Lava Rock","Volcanic Rock",
+    "Basalt",
+    "Basalt Core",
+    "Basalt Rock",
+    "Basalt Vein",
+    "Boulder",
+    "Crimson Crystal",
+    "Cyan Crystal",
+    "Earth Crystal",
+    "Lava Rock",
+    "Light Crystal",
+    "Lucky Block",
+    "Pebble",
+    "Rock",
+    "Violet Crystal",
+    "Volcanic Rock"
 }
 
 
@@ -456,43 +477,53 @@ local function clearBV_Rock()
 end
 
 --====================================================
--- GOBLIN CAVE REGION (FLOOR LIMIT)
+-- SAFE GOBLIN CAVE DETECTION (WORKS ON ALL MAPS)
 --====================================================
 
-local Regions = workspace:WaitForChild("Debris"):WaitForChild("Regions")
-local GoblinPart = Regions:WaitForChild("Goblin Cave")
+local Regions = workspace:FindFirstChild("Debris")
+    and workspace.Debris:FindFirstChild("Regions")
 
-local gCF = GoblinPart.CFrame
-local gSize = GoblinPart.Size
-local half = gSize / 2
+local GoblinPart = Regions and Regions:FindFirstChild("Goblin Cave")
 
--- Độ cao an toàn muốn bay phía trên Goblin Cave
+local GoblinExists = GoblinPart ~= nil
+
+local gCF, gSize, half
+
+if GoblinExists then
+    gCF = GoblinPart.CFrame
+    gSize = GoblinPart.Size
+    half = gSize / 2
+else
+    -- Những giá trị dummy để không lỗi
+    gCF = CFrame.new()
+    gSize = Vector3.new(0,0,0)
+    half = Vector3.new(0,0,0)
+end
+
 local SAFE_OVER_HEIGHT = 40
 
+
 local function insideGoblinXZ(pos)
+    if not GoblinExists then return false end
     local lp = gCF:PointToObjectSpace(pos)
     return math.abs(lp.X) <= half.X and math.abs(lp.Z) <= half.Z
 end
 
+
 local function avoidGoblin()
-    if not IgnoreGoblin then 
-        return false 
-    end
+    if not IgnoreGoblin then return false end
+    if not GoblinExists then return false end
 
     local pos = hrp.Position
     ensureBV_Rock()
 
-    -- kiểm tra XZ trong vùng Goblin
     if insideGoblinXZ(pos) then
         local safeY = gCF.Position.Y + SAFE_OVER_HEIGHT
 
-        -- ★ Nếu đã cao hơn mức an toàn → không spam nữa
         if pos.Y >= safeY - 2 then
-            -- đã OUT vùng nguy hiểm theo chiều Y
             return false
         end
 
-        -- ★ Nếu còn thấp → bay lên
         local target = Vector3.new(pos.X, safeY, pos.Z)
         BV_ROCK.Velocity = (target - pos).Unit * MOVE_ROCK
         return true
@@ -753,7 +784,36 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+--====================================================
+-- AUTO REMOTE SWING TIMER (0.5s)
+--====================================================
+local nextMobSwingTime = 0
+local nextRockSwingTime = 0
 
+local function RemoteSwingDelay(toolName, active, nextTime)
+    local t = tick()
+    if active and t >= nextTime then
+        SwingRemote(toolName)
+        return t + 0.05
+    end
+    return nextTime
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+
+        if AutoMob and AutoMobAttack and currentMob then
+            local tool = autoEquipWeapon()
+            nextMobSwingTime = RemoteSwingDelay(tool, true, nextMobSwingTime)
+        end
+
+        if AutoRock and AutoDig and currentRock then
+            local tool = autoEquipPickaxe()
+            nextRockSwingTime = RemoteSwingDelay(tool, true, nextRockSwingTime)
+        end
+    end
+end)
 
 --====================================================
 -- MINING UI
@@ -849,36 +909,6 @@ TabMining:Slider({
 })
 
 
---====================================================
--- AUTO REMOTE SWING TIMER (0.5s)
---====================================================
-local nextMobSwingTime = 0
-local nextRockSwingTime = 0
-
-local function RemoteSwingDelay(toolName, active, nextTime)
-    local t = tick()
-    if active and t >= nextTime then
-        SwingRemote(toolName)
-        return t + 0.05
-    end
-    return nextTime
-end
-
-task.spawn(function()
-    while true do
-        task.wait(0.05)
-
-        if AutoMob and AutoMobAttack and currentMob then
-            local tool = autoEquipWeapon()
-            nextMobSwingTime = RemoteSwingDelay(tool, true, nextMobSwingTime)
-        end
-
-        if AutoRock and AutoDig and currentRock then
-            local tool = autoEquipPickaxe()
-            nextRockSwingTime = RemoteSwingDelay(tool, true, nextRockSwingTime)
-        end
-    end
-end)
 
 --====================================================
 -- RESPAWN HANDLER
