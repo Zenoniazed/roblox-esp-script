@@ -42,6 +42,7 @@ task.spawn(function()
         VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
     end
 end)
+
 local state = {
     AutoMob     = false,
     AutoRock    = false,
@@ -66,6 +67,7 @@ local CONFIG = "hover_config.json"
 local function save()
     if writefile then
         writefile(CONFIG, HttpService:JSONEncode(state))
+        print("💾 Config Saved!")
     end
 end
 
@@ -223,7 +225,6 @@ local MOB_LIST = {
     "Reaper",
     "Blazing Slime",
     "Slime",
-	"Blight Pyromancer",
 }
 
 local function ensureBV_Mob()
@@ -899,7 +900,6 @@ end)
 -- MODULE 3 — AUTO SELL (FIXED + OPTIMIZED)
 --====================================================
 
-
 local SellNPC = workspace:WaitForChild("Proximity"):WaitForChild("Greedy Cey")
 
 local function ensureBV_Sell()
@@ -1024,12 +1024,10 @@ task.spawn(function()
         if AutoSell then
 
             if not DialogueOpened then
-				-- AutoRock= false
                 local arrived = moveToNPC()
 
                 if arrived then
-                    clearBV_Sell()
-					-- AutoRock= true     
+                    clearBV_Sell()     -- 👉 tới NPC rồi thì tắt bay
                     SellOresNow()
                     task.wait(SELL_DELAY)
                 end
