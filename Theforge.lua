@@ -58,7 +58,13 @@ local state = {
     SelectedOres  = {},
     SellList      = {},
 	SelectedRarity  = {},
-	SellRarity = {}
+	SellRarity = {},
+	SelectedRunes = {},
+	MineAreas = {}, 
+	PriorityRocks ={},
+
+
+
 
 }
 
@@ -100,6 +106,10 @@ state.SellList       = state.SellList       or {}
 state.SelectedRarity = state.SelectedRarity or {}
 state.IgnoreGoblin = state.IgnoreGoblin or false
 state.SellRarity = state.SellRarity or {}
+state.SelectedRunes = state.SelectedRunes or {}
+state.MineAreas = state.MineAreas or {}
+state.PriorityRocks = state.PriorityRocks or {}
+
 
 
 SelectedMobs     = state.SelectedMobs
@@ -109,6 +119,9 @@ SelectedRarity   = state.SelectedRarity
 sellList         = state.SellList
 IgnoreGoblin = state.IgnoreGoblin
 SellRarity = state.SellRarity
+SelectedRunes = state.SelectedRunes
+MineAreas = state.MineAreas
+PriorityRocks = state.PriorityRocks
 
 
 
@@ -203,7 +216,7 @@ local AutoMobAttack = true
 -- AUTO ROCK
 local BV_ROCK = nil
 local currentRock = nil
-local MINEOFFSET_Y = -5
+local MINEOFFSET_Y = -3
 local rockBlacklist = {}
 local BLACKLIST_TIME = 5
 local AutoDig = true
@@ -228,7 +241,7 @@ local MOB_LIST = {
     "Elite Deathaxe Skeleton",
     "Elite Rogue Skeleton",
     "EliteZombie",
-    "MinerZombie",
+    "Delver Zombie",
     "Reaper",
     "Skeleton Rogue",
     "Slime",
@@ -294,6 +307,7 @@ end
 -- MOB MOVEMENT LOOP
 ------------------------------------------------------
 RunService.Heartbeat:Connect(function()
+ 
     if not AutoMob then
         if BV_MOB then BV_MOB.Velocity = Vector3.new(0,0,0) end
         return
@@ -410,6 +424,22 @@ local ORE_TYPES = {
     "Crimson Crystal","Copper","Cobalt","Cardboardite","Boneite",
     "Blue Crystal","Bananite","Arcane Crystal","Amethyst","Aite"
 }
+
+local RUNE_TYPES = {
+    "DrainEdge",
+    "BlastChip",
+    "RageMark",
+    "BriarNotch",
+    "FlameSpark",
+    "MinerShard"
+}
+
+local MINE_AREAS_LIST = {
+    VolcanicDepths = "Island2VolcanicDepths",
+    GoblinCave = "Island2GoblinCave",
+    Cave = "Cave"
+}
+
 
 -- COMMON
 local COMMON_RARITY = {
@@ -532,40 +562,121 @@ local function avoidGoblin()
     return false
 end
 
+local function rockInSelectedAreas(folderName)
+    if #MineAreas == 0 then 
+        return true -- không chọn gì => lấy tất cả
+    end
 
+    for _, area in ipairs(MineAreas) do
+
+        -- 1. Vùng VolcanicDepths
+        if area == "VolcanicDepths" 
+        and folderName == "Island2VolcanicDepths" then
+            return true
+        end
+
+        -- 2. Vùng GoblinCave
+        if area == "GoblinCave"
+        and folderName == "Island2GoblinCave" then
+            return true
+        end
+
+        -- 3. Vùng Cave (tất cả thư mục còn lại)
+        if area == "Cave" then
+            if folderName ~= "Island2VolcanicDepths"
+            and folderName ~= "Island2GoblinCave" then
+                return true
+            end
+        end
+    end
+
+    return false
+end
 
 
 local function getAllRocks()
     local list = {}
 
-    for _, folder in ipairs(workspace.Rocks:GetChildren()) do
-        for _, spawn in ipairs(folder:GetChildren()) do
-		if IgnoreGoblin and folder.Name == "Island2GoblinCave" then
-            -- print("Skip Goblin Cave folder")
+    local RocksRoot = workspace:FindFirstChild("Rocks")
+    if not RocksRoot then
+        return list
+    end
+
+    for _, folder in ipairs(RocksRoot:GetChildren()) do
+        if not rockInSelectedAreas(folder.Name) then
             continue
         end
+        if IgnoreGoblin and folder.Name == "Island2GoblinCave" then
+            continue
+        end
+        for _, spawn in ipairs(folder:GetChildren()) do
             for _, obj in ipairs(spawn:GetChildren()) do
-                if obj:IsA("Model") and obj:FindFirstChild("Hitbox") then
-                    if table.find(SelectedRocks, obj.Name) then
-                        table.insert(list, obj)
-                    end
+                if obj:IsA("Model") 
+                    and obj:FindFirstChild("Hitbox")
+                    and table.find(SelectedRocks, obj.Name) then
+                    
+                    table.insert(list, obj)
                 end
             end
         end
     end
+
     return list
 end
 
+
+
+
 local function getNearestRock()
-    local minDist = math.huge
-    local nearest = nil
+    local allRocks = getAllRocks()
+    if #allRocks == 0 then
+        return nil
+    end
 
-    for _, rock in ipairs(getAllRocks()) do
+    local priorityList = {}
+    local normalList = {}
 
+    -- phân loại rock thành 2 nhóm: ưu tiên & thường
+    for _, rock in ipairs(allRocks) do
+
+        -- skip rock blacklist
         if rockBlacklist[rock] and tick() - rockBlacklist[rock] < BLACKLIST_TIME then
             continue
         end
 
+        if table.find(PriorityRocks, rock.Name) then
+            table.insert(priorityList, rock)
+        else
+            table.insert(normalList, rock)
+        end
+    end
+
+    ----------------------------------------------------------
+    -- 1️⃣ Nếu có danh sách ưu tiên → lấy đá ưu tiên gần nhất
+    ----------------------------------------------------------
+    if #priorityList > 0 then
+        local nearest, minDist = nil, math.huge
+
+        for _, rock in ipairs(priorityList) do
+            local hit = rock:FindFirstChild("Hitbox")
+            if hit then
+                local d = (hit.Position - hrp.Position).Magnitude
+                if d < minDist then
+                    minDist = d
+                    nearest = rock
+                end
+            end
+        end
+
+        return nearest
+    end
+
+    ----------------------------------------------------------
+    -- 2️⃣ Không có rock ưu tiên → dùng logic cũ
+    ----------------------------------------------------------
+    local nearest, minDist = nil, math.huge
+
+    for _, rock in ipairs(normalList) do
         local hit = rock:FindFirstChild("Hitbox")
         if hit then
             local d = (hit.Position - hrp.Position).Magnitude
@@ -578,6 +689,7 @@ local function getNearestRock()
 
     return nearest
 end
+
 
 local function detectOreInRock(rock)
     local ores = {}
@@ -641,6 +753,7 @@ local function oreHasSelectedRarity(ore)
     if not r then return false end
     return table.find(SelectedRarity, r) ~= nil
 end
+
 
 
 
@@ -769,6 +882,8 @@ RunService.Heartbeat:Connect(function()
     else
     end
 
+	-- hrp.CFrame = CFrame.new(hrp.Position, hr.Position)
+
 
     ------------------------------------------------------------------
     -- MOVEMENT
@@ -840,6 +955,7 @@ TabMining:Toggle({
     end
 })
 
+
 TabMining:Dropdown({
     Title = "Select Rock Types",
     List = ROCK_TYPES,
@@ -852,6 +968,18 @@ TabMining:Dropdown({
     end
 })
 
+TabMining:Dropdown({
+    Title = "Priority Rocks",
+    Multi = true,
+    List = ROCK_TYPES,
+    Value = state.PriorityRocks,
+    Callback = function(list)
+        state.PriorityRocks = list
+        PriorityRocks = list
+        save()
+        currentRock = nil
+    end
+})
 
 
 ------------------------------------------------------
@@ -884,6 +1012,19 @@ TabMining:Dropdown({
         save()
     end
 })
+TabMining:Dropdown({
+    Title = "Select Mine Areas",
+    Multi = true,
+    List = { "VolcanicDepths", "GoblinCave", "Cave" },
+    Value = state.MineAreas,
+    Callback = function(list)
+        state.MineAreas = list
+        MineAreas = list
+        save()
+        currentRock = nil
+    end
+})
+
 
 TabMining:Toggle({
     Title = "Ignore Goblin Cave",
@@ -1035,6 +1176,10 @@ local function SellOresNow()
             basket[oreName] = 1
         end
     end
+
+	for _, rune in ipairs(state.SelectedRunes) do
+        basket[rune] = 1
+    end
     if next(basket) == nil then return end
 
     pcall(function()
@@ -1122,6 +1267,19 @@ TabSell:Dropdown({
         save()
     end
 })
+
+TabSell:Dropdown({
+    Title = "Select Runes To Sell",
+    Multi = true,
+    List = RUNE_TYPES,
+    Value = state.SelectedRunes,
+    Callback = function(list)
+        state.SelectedRunes = list
+        SelectedRunes = list
+        save()
+    end
+})
+
 
 TabSell:Slider({
     Title = "Sell Delay",
