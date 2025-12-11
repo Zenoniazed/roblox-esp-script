@@ -4625,6 +4625,10 @@ function Library:Window(p)
 			end
 		end)
 
+		Window.Close = function()
+			pcall(closeui)
+		end
+
 		local CallTheme = function(v)
 			IsTheme = v
 			local t = themes[v]
