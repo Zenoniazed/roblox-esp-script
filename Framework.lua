@@ -4612,6 +4612,7 @@ function Library:Window(p)
 				})
 			end
 		end
+		Tabs.Close = closeui
 
 		ChSize_1.MouseButton1Click:Connect(closeui)
 
