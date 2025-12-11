@@ -4813,9 +4813,7 @@ function Library:Window(p)
 			end)
 		end
 	end
-	Tabs.Close = function()
-    pcall(closeui)
-	end
+
 	return Tabs
 end
 
