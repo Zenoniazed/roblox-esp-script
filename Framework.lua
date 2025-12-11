@@ -4274,9 +4274,6 @@ function Library:Window(p)
 			end)
 		end)
 	end
-	Window.Close = function()
-			pcall(closeui)
-		end
 
 	function Tabs:Dialog(p)
 		if Shadow_1:FindFirstChild('Dialog') then
@@ -4628,7 +4625,9 @@ function Library:Window(p)
 			end
 		end)
 
-		
+		Window.Close = function()
+		    pcall(closeui)
+		end
 
 		local CallTheme = function(v)
 			IsTheme = v
@@ -4814,7 +4813,9 @@ function Library:Window(p)
 			end)
 		end
 	end
-
+	Tabs.Close = function()
+    pcall(closeui)
+	end
 	return Tabs
 end
 
