@@ -161,7 +161,7 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "Dummy Kawaii"
 ScreenGui.Parent = not game:GetService("RunService"):IsStudio() and game:GetService("CoreGui") or game:GetService("Players").LocalPlayer.PlayerGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
+Library.ScreenGui = ScreenGui
 local U, Tw = game:GetService("UserInputService"), game:GetService("TweenService")
 
 do
