@@ -1,9 +1,6 @@
 Library = {}
 SaveTheme = {}
 
-local function safeGetEnabled(obj)
-    return (obj and obj.Enabled ~= nil) and obj.Enabled or false
-end
 
 local themes = {
 	index = {'Dark', 'Amethyst'},
@@ -4747,7 +4744,7 @@ function Library:Window(p)
 			CloseUIShadow.ImageTransparency = 0.5
 			CloseUIShadow.ScaleType = Enum.ScaleType.Slice
 			CloseUIShadow.SliceCenter = Rect.new(10, 10, 118, 118)
-			CloseUIShadow.Visible = safeGetEnabled(CloseUI)
+			CloseUIShadow.Visible = CloseUI.Enabled
 
 			addToTheme('Shadow', CloseUIShadow)
 
