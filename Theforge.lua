@@ -445,7 +445,7 @@ registerGroup(MYTHICAL_RARITY,  "Mythical")
 -- BodyVelocity cho rock
 local BV_ROCK      = nil
 local currentRock  = nil
-local MINEOFFSET_Y = -5.3
+local MINEOFFSET_Y = -5.4
 local STOP_DIST_R  = 1.5
 local rockBlacklist  = {}
 local BLACKLIST_TIME = 5
