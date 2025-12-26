@@ -371,21 +371,10 @@ TabMain:Slider({
 -- MODULE 2 — AUTO ROCK MINING (BodyVelocity)
 --====================================================
 local ROCK_TYPES = {
-    "Basalt",
-    "Basalt Core",
-    "Basalt Rock",
-    "Basalt Vein",
-    "Boulder",
-    "Crimson Crystal",
-    "Cyan Crystal",
-    "Earth Crystal",
-    "Lava Rock",
-    "Light Crystal",
-    "Lucky Block",
-    "Pebble",
-    "Rock",
-    "Violet Crystal",
-    "Volcanic Rock"
+    "Rock","Pebble","Boulder","Lucky Block","Basalt","Lava Rock","Basalt Rock","Basalt Core",
+	"Volcanic Rock","Cyan Crystal","Violet Crystal","Crimson Crystal","Light Crystal","Earth Crystal",
+	"Basalt Vein","Icy Boulder","Icy Pebble","Icy Rock",
+	"Small Ice Crystal","Medium Ice Crystal","Large Ice Crystal","Iceberg","Floating Crystal","Heart Of The Island","Crimson Ice",
 }
 
 local ORE_TYPES = {
@@ -417,26 +406,26 @@ local RUNE_TYPES = {
 
 -- Rarity pools
 local COMMON_RARITY = {
-    "Stone","Sand Stone","Copper","Iron","Cardboardite"
+    "Stone","Sand Stone","Copper","Iron","Cardboardite","Tungsten"
 }
 local UNCOMMON_RARITY = {
-    "Tin","Silver","Gold","Bananite","Cobalt","Titanium","Lapis Lazuli"
+    "Tin","Silver","Gold","Bananite","Cobalt","Titanium","Lapis Lazuli","Sulfur"
 }
 local RARE_RARITY = {
     "Mushroomite","Platinum","Volcanic Rock","Quartz",
-    "Amethyst","Topaz","Diamond","Sapphire"
+    "Amethyst","Topaz","Diamond","Sapphire","Pumice","Graphite","Aetherit","Scheelite"
 }
 local EPIC_RARITY = {
     "Aite","Poopite","Cuprite","Obsidian","Emerald","Ruby","Rivalite",
     "Orange Crystal Ore","Green Crystal Ore","Blue Crystal Ore",
-    "Magenta Crystal Ore","Arcane Crystal Ore","Crimson Crystal Ore"
+    "Magenta Crystal Ore","Arcane Crystal Ore","Crimson Crystal Ore","Moltenfrost",
 }
 local LEGENDARY_RARITY = {
     "Fichillum","Uranium","Mythril","Eye Ore","Fireite",
-    "Magmaite","Lightite","Rainbow Crystal Ore"
+    "Magmaite","Lightite","Rainbow Crystal Ore","Snowite","Velchire","Voidstar","Sanctis"
 }
 local MYTHICAL_RARITY = {
-    "Demonite","Darkryte"
+    "Demonite","Darkryte","Iceite","Etherealite"
 }
 
 local ORE_RARITY = {}
@@ -456,7 +445,7 @@ registerGroup(MYTHICAL_RARITY,  "Mythical")
 -- BodyVelocity cho rock
 local BV_ROCK      = nil
 local currentRock  = nil
-local MINEOFFSET_Y = -3
+local MINEOFFSET_Y = -5.5
 local STOP_DIST_R  = 1.5
 local rockBlacklist  = {}
 local BLACKLIST_TIME = 5
@@ -482,41 +471,56 @@ local function clearBV_Rock()
 end
 
 -- Goblin region
-local Regions     = workspace:FindFirstChild("Debris") and workspace.Debris:FindFirstChild("Regions")
-local GoblinPart  = Regions and Regions:FindFirstChild("Goblin Cave")
-local GoblinExists = GoblinPart ~= nil
-
-local gCF, gSize, half = CFrame.new(), Vector3.new(0,0,0), Vector3.new(0,0,0)
-if GoblinExists then
-    gCF  = GoblinPart.CFrame
-    gSize = GoblinPart.Size
-    half  = gSize / 2
-end
+local RegionsFolder = workspace:FindFirstChild("Debris")
+    and workspace.Debris:FindFirstChild("Regions")
+local DangerousRegions = {}
 
 local SAFE_OVER_HEIGHT = 40
 
-local function insideGoblinXZ(pos)
-    if not GoblinExists then return false end
-    local lp = gCF:PointToObjectSpace(pos)
-    return math.abs(lp.X) <= half.X and math.abs(lp.Z) <= half.Z
+local function registerRegion(part)
+    if not part:IsA("BasePart") then return end
+
+    table.insert(DangerousRegions, {
+        part  = part,
+        cf    = part.CFrame,
+        half  = part.Size / 2,
+        safeY = part.Position.Y + SAFE_OVER_HEIGHT
+    })
 end
-
-local function avoidGoblin()
-    if not IgnoreGoblin then return false end
-    if not GoblinExists then return false end
-
-    local root = GetHRP()
-    local pos  = root.Position
-
-    if insideGoblinXZ(pos) then
-        local safeY = gCF.Position.Y + SAFE_OVER_HEIGHT
-        if pos.Y < safeY - 2 then
-            local target = Vector3.new(pos.X, safeY, pos.Z)
-            local diff   = target - pos
-            BV_ROCK.Velocity = diff.Unit * MOVE_ROCK
-            return true
+if RegionsFolder then
+    for _, obj in ipairs(RegionsFolder:GetChildren()) do
+        if obj.Name == "Goblin Cave"
+        or obj.Name == "Island3RedCave"
+        or obj.Name == "Island3RedCave2" then
+            registerRegion(obj)
         end
     end
+end
+
+local function insideRegionXZ(region, pos)
+    local lp = region.cf:PointToObjectSpace(pos)
+    return math.abs(lp.X) <= region.half.X
+       and math.abs(lp.Z) <= region.half.Z
+end
+
+local function avoidDangerRegions(speed)
+    if not IgnoreGoblin then return false end
+    if #DangerousRegions == 0 then return false end
+
+    local hrp = GetHRP()
+    local pos = hrp.Position
+
+    for _, region in ipairs(DangerousRegions) do
+        if insideRegionXZ(region, pos) then
+            if pos.Y < region.safeY - 2 then
+                local target = Vector3.new(pos.X, region.safeY, pos.Z)
+                local diff   = target - pos
+                BV_ROCK.Velocity = diff.Unit * speed
+                return true
+            end
+        end
+    end
+
     return false
 end
 
@@ -666,7 +670,7 @@ RunService.Heartbeat:Connect(function()
     local root = GetHRP()
 
     -- né Goblin
-    if avoidGoblin() then
+    if avoidDangerRegions(MOVE_ROCK) then
         return
     end
 
@@ -730,6 +734,8 @@ RunService.Heartbeat:Connect(function()
             end
         end
     end
+
+	-- root.CFrame = CFrame.new(root.Position, hit.Position)
 
     local target = hit.Position + Vector3.new(0, MINEOFFSET_Y, 0)
     local diff   = target - root.Position
