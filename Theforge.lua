@@ -207,22 +207,7 @@ local STOP_DIST_M  = 1.5
 local AutoMobAttack = true
 
 local MOB_LIST = {
-    "Axe Skeleton",
-    "Blazing Slime",
-    "Blight Pyromancer",
-    "Bomber",
-    "Brute Zombie",
-    "Deathaxe Skeleton",
-    "Delver Zombie",
-    "Elite Deathaxe Skeleton",
-    "Elite Rogue Skeleton",
-    "EliteZombie",
-    "Delver Zombie",
-    "Reaper",
-    "Skeleton Rogue",
-    "Slime",
-    "Zombie",
-    "Zombie3",
+    "Slime", "Blazing Slime", "Delver Zombie", "Skeleton Rogue", "Axe Skeleton", "Elite Rogue Skeleton", "Elite Deathaxe Skeleton", "Deathaxe Skeleton", "Bomber", "Reaper", "Blight Pyromancer", "Common Orc", "Crystal Spider", "Diamond Spider", "Prismarine Spider", "Yeti", "Demonic Queen Spider", "Demonic Spider", "Mini Demonic Spider", "Crystal Golem", "Crystal_Golem", "Golem", "Elite Orc", "Zombie3", "EliteZombie", "MinerZombie", "Zombie", "Brute Zombie",
 }
 
 local function ensureBV_Mob()
@@ -404,16 +389,19 @@ local ROCK_TYPES = {
 }
 
 local ORE_TYPES = {
-    "Volcanic Rock","Uranium","Topaz","Titanium","Tin","Stone",
-    "Starite","Slimite","Silver","Sapphire","Sand Stone","Ruby",
-    "Rivalite","Rainbow Crystal","Quartz","Poopite","Platinum",
-    "Orange Crystal","Obsidian","Mythril","Mushroomite","Meteorite",
-    "Magmaite","Magenta Crystal","Lightite","Lapis Lazuli","Jade",
-    "Iron","Iceite","Green Crystal","Grass","Gold","Galaxite",
-    "Fireite","Fichillum","Fichillumorite","Eye Ore","Emerald",
-    "Diamond","Demonite","Darkryte","Dark Boneite","Cuprite",
-    "Crimson Crystal","Copper","Cobalt","Cardboardite","Boneite",
-    "Blue Crystal","Bananite","Arcane Crystal","Amethyst","Aite"
+    "Volcanic Rock","Uranium","Topaz","Titanium",
+	"Tin","Stone","Starite","Slimite","Silver",
+	"Sapphire","Sand Stone","Ruby","Rivalite",
+	"Rainbow Crystal","Quartz","Poopite","Platinum","Orange Crystal",
+	"Obsidian","Mythril","Mushroomite","Meteorite","Magmaite",
+	"Magenta Crystal","Lightite","Lapis Lazuli","Jade","Iron","Iceite",
+	"Green Crystal","Grass","Gold","Galaxite","Fireite","Fichillium",
+	"Fichilliumorite","Eye Ore","Emerald","Diamond","Demonite","Darkryte","Dark Boneite","Cuprite",
+	"Crimson Crystal","Copper","Cobalt","Cardboardite","Boneite","Blue Crystal","Bananite","Arcane Crystal",
+	"Amethyst","Aite","Aether Lotus","Aetherit","Aqujade","Ceyite","Crimsonite","Cryptex","Etherealite",
+	"Frost Fossil","Galestor","Gargantuan","Graphite","Heavenite","Larimar","Lgarite","Malachite","Marblite",
+	"Mistvein","Moltenfrost","Neurotite","Pumice","Sanctis","Scheelite","Sulfur","Suryafal","Tide Carve","Tungsten",
+	"Vanegos","Velchire","Voidfractal","Voidstar","Vooite","Zephyte","Snowite","Mosasaursit","Coinite"
 }
 
 local RUNE_TYPES = {
@@ -422,7 +410,9 @@ local RUNE_TYPES = {
     "Rage Mark",
     "Briar Notch",
     "Flame Spark",
-    "Miner Shard"
+    "Miner Shard",
+	"Venom Crumb",
+	"Frost Speck",
 }
 
 -- Rarity pools
