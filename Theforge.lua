@@ -82,6 +82,8 @@ local state = {
     SelectedRunes     = {},
     MineAreas         = {},
     PriorityRocks     = {},
+	SelectedMultiplier = {},
+	SellMultiplier = {},
 }
 
 local CONFIG = "hover_config.json"
@@ -123,6 +125,11 @@ state.SelectedUsePotion  = state.SelectedUsePotion  or {}
 state.IgnoreGoblin       = state.IgnoreGoblin       or false
 state.AutoBuyPotion      = state.AutoBuyPotion      or false
 state.AutoUsePotion      = state.AutoUsePotion      or false
+state.SelectedMultiplier = state.SelectedMultiplier or {}
+state.SellMultiplier = state.SellMultiplier or {}
+
+
+
 
 -- biến runtime
 local AutoMob         = state.AutoMob
@@ -146,8 +153,8 @@ local AutoBuyPotion   = state.AutoBuyPotion
 local AutoUsePotion   = state.AutoUsePotion
 local SelectedBuyPotion = state.SelectedBuyPotion
 local SelectedUsePotion = state.SelectedUsePotion
-
-
+SelectedMultiplier = state.SelectedMultiplier
+SellMultiplier = state.SellMultiplier
 --====================================================
 -- KNIT SERVICES / RF
 --====================================================
@@ -207,7 +214,13 @@ local STOP_DIST_M  = 1.5
 local AutoMobAttack = true
 
 local MOB_LIST = {
-    "Slime", "Blazing Slime", "Delver Zombie", "Skeleton Rogue", "Axe Skeleton", "Elite Rogue Skeleton", "Elite Deathaxe Skeleton", "Deathaxe Skeleton", "Bomber", "Reaper", "Blight Pyromancer", "Common Orc", "Crystal Spider", "Diamond Spider", "Prismarine Spider", "Yeti", "Demonic Queen Spider", "Demonic Spider", "Mini Demonic Spider", "Crystal Golem", "Crystal_Golem", "Golem", "Elite Orc", "Zombie3", "EliteZombie", "MinerZombie", "Zombie", "Brute Zombie",
+    "Slime", "Blazing Slime", "Delver Zombie",
+	 "Skeleton Rogue", "Axe Skeleton",
+	  "Elite Rogue Skeleton", "Elite Deathaxe Skeleton",
+	   "Deathaxe Skeleton", "Bomber", "Reaper", "Blight Pyromancer",
+	    "Common Orc", "Crystal Spider", "Diamond Spider", "Prismarine Spider",
+		 "Yeti", "Demonic Queen Spider", "Demonic Spider", "Mini Demonic Spider",
+		  "Crystal Golem", "Crystal_Golem", "Golem", "Elite Orc", "Zombie3", "EliteZombie", "MinerZombie", "Zombie", "Brute Zombie",
 }
 
 local function ensureBV_Mob()
@@ -428,6 +441,26 @@ local MYTHICAL_RARITY = {
     "Demonite","Darkryte","Iceite","Etherealite"
 }
 
+local ORE_MULTIPLIER = {
+    ["0x"]  = { "Fichillium" },
+    ["1x"]  = { "Cobalt", "Aite", "Titanium", "Poopite" },
+    ["2x"]  = { "Diamond", "Sapphire", "Obsidian", "Cuprite", "Emerald", "Ruby", "Dark Boneite", "Slimeite" },
+    ["3x"]  = { "Orange Crystal", "Uranium", "Magenta Crystal", "Graphite", "Green Crystal",
+                "Crimson Crystal", "Blue Crystal", "Rivalite", "Aetherit", "Mythril",
+                "Scheelite", "Boneite" },
+    ["4x"]  = { "Eye Ore", "Fireite", "Neurotite", "Frost Fossil", "Lightite", "Tide Carve", "Larimar" },
+    ["5x"]  = { "Magmaite", "Demonite", "Velchire", "Rainbow Crystal" },
+    ["6x"]  = { "Sanctis", "Darkryte" },
+    ["7x"]  = { "Mosasaurist", "Mistvein", "Lgarite", "Arcane Crystal" },
+    ["8x"]  = { "Snowite", "Voidfractal", "Moltenfrost", "Crimsonite", "Malachite" },
+    ["9x"]  = { "Aqujade", "Cryptex", "Galesor" },
+    ["10x"] = { "Voidstar", "Iceite" },
+    ["11x"] = { "Etherealite" },
+    ["17x"] = { "Suryafal" },
+    ["25x"] = { "Heavenite" },
+    ["33x"] = { "Gargantuan" },
+}
+
 local ORE_RARITY = {}
 local function registerGroup(list, rarity)
     for _, ore in ipairs(list) do
@@ -445,7 +478,7 @@ registerGroup(MYTHICAL_RARITY,  "Mythical")
 -- BodyVelocity cho rock
 local BV_ROCK      = nil
 local currentRock  = nil
-local MINEOFFSET_Y = -5.4
+local MINEOFFSET_Y = -5.37
 local STOP_DIST_R  = 1.5
 local rockBlacklist  = {}
 local BLACKLIST_TIME = 5
@@ -543,6 +576,13 @@ local function rockInSelectedAreas(folderName)
     end
     return false
 end
+local ORE_TO_MULT = {}
+
+for mult, ores in pairs(ORE_MULTIPLIER) do
+    for _, ore in ipairs(ores) do
+        ORE_TO_MULT[ore] = mult
+    end
+end
 
 local function getAllRocks()
     local list = {}
@@ -625,6 +665,8 @@ local function detectOreInRock(rock)
     return ores
 end
 
+
+
 local lastErrorTick  = 0
 local ERROR_COOLDOWN = 0.25
 
@@ -653,6 +695,11 @@ local function oreHasSelectedRarity(ore)
     return table.find(SelectedRarity, r) ~= nil
 end
 
+local function oreHasSelectedMultiplier(ore)
+    local m = ORE_TO_MULT[ore]
+    if not m then return false end
+    return table.find(SelectedMultiplier, m) ~= nil
+end
 -- ROCK MOVEMENT LOOP
 RunService.Heartbeat:Connect(function()
     if not AutoRock then
@@ -678,6 +725,8 @@ RunService.Heartbeat:Connect(function()
     SelectedRarity = SelectedRarity or {}
     local useOreFilter    = next(SelectedOres)   ~= nil
     local useRarityFilter = next(SelectedRarity) ~= nil
+	local useMultFilter = next(SelectedMultiplier) ~= nil
+
 
     if tick() - lastErrorTick < ERROR_COOLDOWN then
         if currentRock then
@@ -714,7 +763,7 @@ RunService.Heartbeat:Connect(function()
 
     local ores = detectOreInRock(currentRock)
 
-    if useOreFilter or useRarityFilter then
+    if useOreFilter or useRarityFilter or useMultFilter then
         if #ores > 0 then
             local ok = false
             for _, ore in ipairs(ores) do
@@ -724,6 +773,10 @@ RunService.Heartbeat:Connect(function()
                 if useRarityFilter and oreHasSelectedRarity(ore) then
                     ok = true; break
                 end
+				if useMultFilter and oreHasSelectedMultiplier(ore) then
+					ok = true; break
+				end
+
             end
 
             if not ok then
@@ -862,6 +915,25 @@ TabMining:Dropdown({
     end
 })
 
+local MULT_LIST = {}
+for k in pairs(ORE_MULTIPLIER) do
+    table.insert(MULT_LIST, k)
+end
+table.sort(MULT_LIST)
+
+TabMining:Dropdown({
+    Title = "Select Ore Multiplier",
+    Multi = true,
+    List = MULT_LIST,
+    Value = state.SelectedMultiplier,
+    Callback = function(list)
+        state.SelectedMultiplier = list
+        SelectedMultiplier = list
+        save()
+        currentRock = nil
+    end
+})
+
 TabMining:Dropdown({
     Title = "Select Mine Areas",
     Multi = true,
@@ -905,11 +977,9 @@ player.CharacterAdded:Connect(function(c)
     hrp  = c:WaitForChild("HumanoidRootPart")
 
     clearBV_Mob()
-    currentMob = nil
     if AutoMob then ensureBV_Mob() end
 
     clearBV_Rock()
-    currentRock = nil
     if AutoRock then ensureBV_Rock() end
 end)
 
@@ -987,6 +1057,14 @@ local function GetRunesToSell()
     end
     return runes
 end
+local function oreMatchesSellMultiplier(oreName)
+	if not SellMultiplier or next(SellMultiplier) == nil then
+        return false
+    end
+    local m = ORE_TO_MULT[oreName]
+    if not m then return false end
+    return table.find(SellMultiplier, m) ~= nil
+end
 
 local function SellOresNow()
     if not OpenDialogue() then return end
@@ -999,9 +1077,15 @@ local function SellOresNow()
 
     for oreName,_ in pairs(ORE_RARITY) do
         if oreMatchesSellRarity(oreName) then
-            basket[oreName] = 1
-        end
+        basket[oreName] = 1
+    	end
     end
+	for oreName,_ in pairs(ORE_TO_MULT) do
+    if oreMatchesSellMultiplier(oreName) then
+        basket[oreName] = 1
+    end
+	end
+
 
     local runeList = GetRunesToSell()
     for guid,_ in pairs(runeList) do
@@ -1134,6 +1218,25 @@ TabSell:Dropdown({
     end
 })
 
+local SELL_MULT_LIST = {}
+for k in pairs(ORE_MULTIPLIER) do
+    table.insert(SELL_MULT_LIST, k)
+end
+table.sort(SELL_MULT_LIST)
+
+TabSell:Dropdown({
+    Title = "Sell Ore Multiplier",
+    Multi = true,
+    List = SELL_MULT_LIST,
+    Value = state.SellMultiplier,
+    Callback = function(list)
+        state.SellMultiplier = list
+        SellMultiplier = list
+        save()
+    end
+})
+
+
 TabSell:Dropdown({
     Title = "Select Runes To Sell",
     Multi = true,
@@ -1158,8 +1261,9 @@ TabSell:Slider({
 })
 
 --====================================================
--- MODULE 4 — AUTO BUY / AUTO USE POTION
+-- MODULE 4 — AUTO BUY / AUTO USE POTION (NO MARIA)
 --====================================================
+
 local LIST_POTION_TYPE = {
     "DamagePotion1",
     "HealthPotion1",
@@ -1169,15 +1273,18 @@ local LIST_POTION_TYPE = {
     "SpeedPotion1"
 }
 
--- BV cho buy potion
-local BV_BUY = nil
-local BUY_OFFSET_Y = 2
-local BUY_STOP_DIST = 2
+----------------------------------------------------
+-- PROXIMITY FOLDER (chứa potion parts)
+----------------------------------------------------
+local ProximityFolder = workspace:WaitForChild("Proximity")
 
-local MariaNPC = nil
-pcall(function()
-    MariaNPC = workspace:WaitForChild("Proximity"):WaitForChild("Maria")
-end)
+----------------------------------------------------
+-- BODY VELOCITY BUY
+----------------------------------------------------
+local BV_BUY = nil
+local BUY_OFFSET_Y  = 2
+local BUY_STOP_DIST = 2
+local BUY_SPEED     = 50
 
 local function ensureBV_Buy()
     if not BV_BUY then
@@ -1198,15 +1305,63 @@ local function clearBV_Buy()
     end
 end
 
-local function BuyPotion()
-    if type(SelectedBuyPotion) ~= "table" then return end
-    for _, potion in ipairs(SelectedBuyPotion) do
-        pcall(function()
-            PurchaseRF:InvokeServer(potion, 1)
-        end)
+----------------------------------------------------
+-- GET POTION PART (tên potion = tên Part)
+----------------------------------------------------
+local function getPotionPart(potionName)
+    local obj = ProximityFolder:FindFirstChild(potionName)
+    if not obj then return nil end
+
+    -- nếu là Model → lấy PrimaryPart hoặc Part con
+    if obj:IsA("Model") then
+        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+    end
+
+    if obj:IsA("BasePart") then
+        return obj
+    end
+
+    return nil
+end
+
+
+----------------------------------------------------
+-- MOVE TO POTION
+----------------------------------------------------
+local function moveToPotion(potionName)
+    local part = getPotionPart(potionName)
+    if not part then
+        return true -- tránh kẹt nếu part không tồn tại
+    end
+
+    ensureBV_Buy()
+
+    local root   = GetHRP()
+    local target = part.Position + Vector3.new(0, BUY_OFFSET_Y, 0)
+    local diff   = target - root.Position
+    local dist   = diff.Magnitude
+
+    if dist > BUY_STOP_DIST then
+        BV_BUY.Velocity = diff.Unit * BUY_SPEED
+        return false
+    else
+        BV_BUY.Velocity = Vector3.zero
+        return true
     end
 end
 
+----------------------------------------------------
+-- BUY POTION (REMOTE)
+----------------------------------------------------
+local function BuyPotion(potionName)
+    pcall(function()
+        PurchaseRF:InvokeServer(potionName, 1)
+    end)
+end
+
+----------------------------------------------------
+-- USE POTION (REMOTE)
+----------------------------------------------------
 local function UsePotion()
     if type(SelectedUsePotion) ~= "table" then return end
     for _, potion in ipairs(SelectedUsePotion) do
@@ -1216,58 +1371,59 @@ local function UsePotion()
     end
 end
 
--- Auto Buy Potion: khi tới thời gian → tạm dừng farm, bay tới Maria, mua, rồi resume
+----------------------------------------------------
+-- AUTO BUY LOOP (BAY TỪNG POTION)
+----------------------------------------------------
+local lastBuyTick = 0
+
 task.spawn(function()
-    while true do
-        task.wait(0.05)
-        if AutoBuyPotion and #SelectedBuyPotion > 0 and MariaNPC then
-            -- lưu trạng thái farm
-            local prevMob, prevRock = AutoMob, AutoRock
-            AutoMob, AutoRock = false, false
-            clearBV_Mob()
-            clearBV_Rock()
+    while task.wait(0.15) do
+        if not AutoBuyPotion then continue end
+        if #SelectedBuyPotion == 0 then continue end
 
-            ensureBV_Buy()
+        -- delay
+        if tick() - lastBuyTick < BUY_DELAY then continue end
+        lastBuyTick = tick()
 
-            -- bay tới Maria
-            while AutoBuyPotion do
-                local root = GetHRP()
-                local npcPart = MariaNPC:FindFirstChild("HumanoidRootPart") or MariaNPC.PrimaryPart
-                if not npcPart then break end
+        -- pause farm
+        local prevMob, prevRock = AutoMob, AutoRock
+        AutoMob, AutoRock = false, false
+        clearBV_Mob()
+        clearBV_Rock()
 
-                local target = npcPart.Position + Vector3.new(0, BUY_OFFSET_Y, 0)
-                local diff   = target - root.Position
-                local dist   = diff.Magnitude
+        ensureBV_Buy()
 
-                if dist > BUY_STOP_DIST then
-                    BV_BUY.Velocity = diff.Unit * 50
-                else
-                    BV_BUY.Velocity = Vector3.zero
-                    break
-                end
+        for _, potion in ipairs(SelectedBuyPotion) do
+            local reached = false
 
+            -- bay tới đúng potion
+            while AutoBuyPotion and not reached do
+                reached = moveToPotion(potion)
                 task.wait(0.05)
             end
 
             -- mua
             if AutoBuyPotion then
-                BuyPotion()
+                pcall(function()
+                    PurchaseRF:InvokeServer(potion, 1)
+                end)
             end
 
-            clearBV_Buy()
-
-			task.wait(2)
-            -- resume farm
-            AutoMob  = prevMob
-            AutoRock = prevRock
-
-            -- chờ delay mua
-            task.wait(BUY_DELAY)
+            task.wait(0.25)
         end
+
+        clearBV_Buy()
+
+        -- resume farm
+        AutoMob  = prevMob
+        AutoRock = prevRock
     end
 end)
 
--- Auto Use Potion (dùng remote từ xa)
+
+----------------------------------------------------
+-- AUTO USE POTION LOOP
+----------------------------------------------------
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -1277,6 +1433,7 @@ task.spawn(function()
         end
     end
 end)
+
 
 local TabPotion = Window:Tab({ Title = "Potion", Icon = "flask" })
 
