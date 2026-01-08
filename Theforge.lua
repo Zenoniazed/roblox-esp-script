@@ -388,22 +388,24 @@ local ROCK_TYPES = {
 	"Volcanic Rock","Cyan Crystal","Violet Crystal","Crimson Crystal","Light Crystal","Earth Crystal",
 	"Basalt Vein","Icy Boulder","Icy Pebble","Icy Rock",
 	"Small Ice Crystal","Medium Ice Crystal","Large Ice Crystal","Iceberg","Floating Crystal","Heart Of The Island","Crimson Ice",
+	"Small Red Crystal","Medium Red Crystal","Large Red Crystal",
 }
 
 local ORE_TYPES = {
-    "Volcanic Rock","Uranium","Topaz","Titanium",
-	"Tin","Stone","Starite","Slimite","Silver",
-	"Sapphire","Sand Stone","Ruby","Rivalite",
-	"Rainbow Crystal","Quartz","Poopite","Platinum","Orange Crystal",
-	"Obsidian","Mythril","Mushroomite","Meteorite","Magmaite",
-	"Magenta Crystal","Lightite","Lapis Lazuli","Jade","Iron","Iceite",
-	"Green Crystal","Grass","Gold","Galaxite","Fireite","Fichillium",
-	"Fichilliumorite","Eye Ore","Emerald","Diamond","Demonite","Darkryte","Dark Boneite","Cuprite",
-	"Crimson Crystal","Copper","Cobalt","Cardboardite","Boneite","Blue Crystal","Bananite","Arcane Crystal",
-	"Amethyst","Aite","Aether Lotus","Aetherit","Aqujade","Ceyite","Crimsonite","Cryptex","Etherealite",
-	"Frost Fossil","Galestor","Gargantuan","Graphite","Heavenite","Larimar","Lgarite","Malachite","Marblite",
-	"Mistvein","Moltenfrost","Neurotite","Pumice","Sanctis","Scheelite","Sulfur","Suryafal","Tide Carve","Tungsten",
-	"Vanegos","Velchire","Voidfractal","Voidstar","Vooite","Zephyte","Snowite","Mosasaursit","Coinite"
+    "Volcanic Rock","Uranium","Topaz",
+"Titanium","Tin","Stone","Starite","Slimite",
+"Coinite","Sapphire","Sand Stone","Ruby","Rivalite",
+"Rainbow Crystal","Quartz","Poopite","Platinum","Orange Crystal",
+"Obsidian","Mythril","Mushroomite","Meteorite","Magmaite","Magenta Crystal",
+"Lightite","Lapis Lazuli","Jade","Iron","Iceite","Green Crystal","Grass","Gold",
+"Galaxite","Fireite","Fichillium","Fichilliumorite","Eye Ore","Emerald","Diamond",
+"Demonite","Darkryte","Dark Boneite","Cuprite","Crimson Crystal","Copper","Cobalt",
+"Cardboardite","Boneite","Blue Crystal","Bananite","Arcane Crystal","Amethyst","Aite",
+"Aether Lotus","Aetherit","Aqujade","Ceyite","Crimsonite","Cryptex","Etherealite","Frost Fossil",
+"Galestor","Gargantuan","Graphite","Heavenite","Larimar","Lgarite","Malachite","Marblite","Mistvein",
+"Moltenfrost","Neurotite","Pumice","Sanctis","Scheelite","Sulfur","Suryafal","Tide Carve","Tungsten","Vanegos",
+"Velchire","Voidfractal","Voidstar","Vooite","Zephyte","Snowite","Mosasaursit","Silver",
+"Duranite","Stolen Heart","Moon Stone","Gulabite","Frogite","Evil Eye","Heart Of The Island"
 }
 
 local RUNE_TYPES = {
@@ -452,13 +454,16 @@ local ORE_MULTIPLIER = {
     ["5x"]  = { "Magmaite", "Demonite", "Velchire", "Rainbow Crystal" },
     ["6x"]  = { "Sanctis", "Darkryte" },
     ["7x"]  = { "Mosasaurist", "Mistvein", "Lgarite", "Arcane Crystal" },
-    ["8x"]  = { "Snowite", "Voidfractal", "Moltenfrost", "Crimsonite", "Malachite" },
-    ["9x"]  = { "Aqujade", "Cryptex", "Galesor" },
+    ["8x"]  = { "Snowite", "Voidfractal", "Moltenfrost", "Crimsonite", "Malachite","Frogite" },
+    ["9x"]  = { "Aqujade", "Cryptex", "Galesor","Moon Stone","Gulabite" },
     ["10x"] = { "Voidstar", "Iceite" },
     ["11x"] = { "Etherealite" },
-    ["17x"] = { "Suryafal" },
-    ["25x"] = { "Heavenite" },
-    ["33x"] = { "Gargantuan" },
+	["12x"] = { "Duranite" },
+	["13x"] = { "Evil Eye" },
+    ["15x"] = { "Suryafal","Stolen Heart" },
+	["18x"] = { "Heart Of The Island" },
+    ["20x"] = { "Heavenite" },
+    ["25x"] = { "Gargantuan" },
 }
 
 local ORE_RARITY = {}
