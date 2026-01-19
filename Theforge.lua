@@ -705,6 +705,31 @@ local function oreHasSelectedMultiplier(ore)
     if not m then return false end
     return table.find(SelectedMultiplier, m) ~= nil
 end
+
+local function getBasePartFrom(obj)
+    if not obj then return nil end
+    if obj:IsA("BasePart") then return obj end
+    if obj:IsA("Model") then
+        if obj.PrimaryPart then return obj.PrimaryPart end
+        return obj:FindFirstChildWhichIsA("BasePart", true)
+    end
+    return nil
+end
+
+local function getCriticalPart(rock)
+    if not rock then return nil end
+
+    -- RockCritical có thể spawn sâu trong rock
+    local rc = rock:FindFirstChild("RockCritical", true)
+    local part = getBasePartFrom(rc)
+    if not part then return nil end
+
+    -- Một số game ẩn critical khi hết hiệu lực
+    if part.Transparency >= 1 then return nil end
+    if not part:IsDescendantOf(workspace) then return nil end
+
+    return part
+end
 -- ROCK MOVEMENT LOOP
 RunService.Heartbeat:Connect(function()
     if not AutoRock then
@@ -795,7 +820,15 @@ RunService.Heartbeat:Connect(function()
 
 	-- root.CFrame = CFrame.new(root.Position, hit.Position)
 
-    local target = hit.Position + Vector3.new(0, MINEOFFSET_Y, 0)
+    -- root.CFrame = CFrame.new(root.Position, hit.Position)
+	local aimPart = getCriticalPart(currentRock) or hit
+    local aimPos  = aimPart.Position
+
+    -- quay mặt về điểm aim (đánh trúng critical dễ hơn)
+    root.CFrame = CFrame.new(root.Position, aimPos)
+
+    -- Move tới aimPos (có offset Y)
+    local target = aimPos + Vector3.new(0, MINEOFFSET_Y, 0)
     local diff   = target - root.Position
     local dist   = diff.Magnitude
 
