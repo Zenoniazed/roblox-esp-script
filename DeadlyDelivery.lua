@@ -13,7 +13,7 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- LOOT & RETURN LOCATION
 ---------------------------------------------------------------------
 local LootWorld = workspace.GameSystem.Loots.World
-local returnPoint = workspace["\231\148\181\230\162\175"].Left4:DoorController
+local returnPoint = workspace["\231\148\181\230\162\175"].FoodGathering
 
 ---------------------------------------------------------------------
 -- UI GỌN + KÉO THẢ (MOBILE FIX)
