@@ -58,6 +58,8 @@ local state = {
 	AutoGacha = false,
     GachaDelay = 1,
     RodSettings = {
+		["3 in 1 Gold Threaded Steel Rod"] = {},
+		["3 in 1 Threaded Steel Rod"] = {},
 		["Titanium Steel Rod"] = {},
 		["Steel Rod"] = {},
 		["Bamboo Rod"] = {},
@@ -101,7 +103,7 @@ load()
 
 local ALL_RARITIES = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine"}
 local SKILL_OPTIONS = {"Skill 1", "Skill 2", "Skill 3", "Skill 4"}
-local MY_RODS = {"Titanium Steel Rod","Steel Rod","Bamboo Rod","Golden Rod","Stone Rod","Gold Plated Rod","Rusty Iron Rod","Upgraded Wooden Rod","Wooden Rod"}
+local MY_RODS = {"3 in 1 Gold Threaded Steel Rod","3 in 1 Threaded Steel Rod","Titanium Steel Rod","Steel Rod","Bamboo Rod","Golden Rod","Stone Rod","Gold Plated Rod","Rusty Iron Rod","Upgraded Wooden Rod","Wooden Rod"}
 
 local dangSpam = false
 local fishHooked = false
@@ -186,13 +188,30 @@ local function getNearestFishSeller()
     return nearest
 end
 
+local savedCastPos = nil
 
 local function castRod()
     if state.isSelling or not state.AutoFish then return end
-    
+
+	if savedCastPos then
+        -- Nếu khoảng cách xa hơn 2 studs mới cần đi bộ về
+        if (hrp.Position - savedCastPos.Position).Magnitude > 2 then
+            state.isMoving = true
+            smartMoveTo(savedCastPos.Position) -- Tự tìm đường đi về
+            
+            -- Sau khi đi tới nơi, xoay mặt về hướng cũ cho giống thật
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + savedCastPos.LookVector)
+            state.isMoving = false
+            task.wait(0.3) -- Nghỉ một chút cho tự nhiên
+        end
+    else
+        -- Lưu vị trí hiện tại làm gốc cho lần đầu tiên bật Auto
+        savedCastPos = hrp.CFrame
+    end
+	
     fishHooked = false
     lastCastTime = tick()
-    
+	
     -- Nhấn gồng (Index 9)
     eventsFolder:GetChildren()[9]:FireServer()
     
