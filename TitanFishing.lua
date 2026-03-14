@@ -5,6 +5,8 @@ local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualUser = game:GetService("VirtualUser")
 local PathfindingService = game:GetService("PathfindingService")
+local HttpService = game:GetService("HttpService")
+
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -21,12 +23,17 @@ end)
 local playerGui = player:WaitForChild("PlayerGui")
 local fishStats = playerGui:WaitForChild("FishStats")
 local healthFrame = fishStats:WaitForChild("HealthFrame")
-local distanceFrame = fishStats:WaitForChild("DistanceFrame")
+local distanceFrame = healthFrame:WaitForChild("DistanceFrame") -- Thay đổi ở đây
 local fishNameLabel = healthFrame:WaitForChild("FishName")
+
 local chargeMain = playerGui:WaitForChild("Charge"):WaitForChild("Main")
-local luckBar = chargeMain:WaitForChild("CanvasGroup"):WaitForChild("Bar")
-local buttonClose = player.PlayerGui:WaitForChild("SellGUI").Canvas.Main.Close
-local buttonAll = player.PlayerGui:WaitForChild("SellGUI").Canvas.Main.All
+local luckBar = chargeMain:WaitForChild("Back"):WaitForChild("Fill")
+
+
+local sellGUI = playerGui:WaitForChild("SellGUI")
+local buttonMain = sellGUI:WaitForChild("Main")
+local buttonAll = buttonMain:WaitForChild("All") -- ImageButton
+local buttonClose = buttonMain:WaitForChild("Close")
 
 local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
 local castPressRemote = eventsFolder:GetChildren()[9]  -- Index 9: Nhấn
@@ -38,6 +45,8 @@ local notificationFrame = playerGui:WaitForChild("Notification"):WaitForChild("F
 local gachaUI = player.PlayerGui:WaitForChild("GachaUI")
 
 --================ STATE ================
+local CONFIG = "TitanFishing.json"
+
 local state = {
     AutoFish = false,
     LuckThreshold = 0.95,
@@ -61,6 +70,35 @@ local state = {
     }
 }
 
+local function save()
+    if writefile then
+        local success, err = pcall(function()
+            writefile(CONFIG, HttpService:JSONEncode(state))
+        end)
+        if success then print("💾 Config Saved!") else warn("❌ Save Error:", err) end
+    end
+end
+
+local function load()
+    if isfile and isfile(CONFIG) then
+        local ok, data = pcall(function()
+            return HttpService:JSONDecode(readfile(CONFIG))
+        end)
+        if ok and type(data) == "table" then
+            for k, v in pairs(data) do
+                -- Chỉ ghi đè nếu state cũ có phím đó để tránh lỗi dữ liệu rác
+                if state[k] ~= nil then
+                    state[k] = v
+                end
+            end
+            print("📂 Config Loaded!")
+        end
+    end
+end
+
+-- Gọi load ngay lập tức trước khi tạo UI
+load()
+
 local ALL_RARITIES = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine"}
 local SKILL_OPTIONS = {"Skill 1", "Skill 2", "Skill 3", "Skill 4"}
 local MY_RODS = {"Titanium Steel Rod","Steel Rod","Bamboo Rod","Golden Rod","Stone Rod","Gold Plated Rod","Rusty Iron Rod","Upgraded Wooden Rod","Wooden Rod"}
@@ -82,23 +120,7 @@ task.spawn(function()
     end
 end)
 
--- local function getButtonCenter(guiObject)
---     local pos = guiObject.AbsolutePosition
---     local size = guiObject.AbsoluteSize
---     local centerX = pos.X + (size.X / 2)
---     local centerY = pos.Y + (size.Y / 2) + 36 
-    
---     return centerX, centerY
--- end
 
--- -- Định nghĩa hàm click gọn ở đầu script
--- local function clickGui(guiObject)
---     if not guiObject then return end
---     local x, y = getButtonCenter(guiObject)
---     VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
---     task.wait(0.1)
---     VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
--- end
 
 local function clickGui(guiObject)
     if not guiObject then return end
@@ -164,21 +186,26 @@ local function getNearestFishSeller()
     return nearest
 end
 
+
 local function castRod()
     if state.isSelling or not state.AutoFish then return end
     
     fishHooked = false
     lastCastTime = tick()
+    
+    -- Nhấn gồng (Index 9)
     eventsFolder:GetChildren()[9]:FireServer()
     
     local startGong = tick()
     repeat 
-        task.wait(0.1) 
-    until luckBar.Size.Y.Scale >= state.LuckThreshold or (tick() - startGong) > 3
+        task.wait(0.1)
+        -- Kiểm tra thanh Fill của LuckBar
+        local currentLuck = luckBar.Size.Y.Scale
+    until currentLuck >= state.LuckThreshold or (tick() - startGong) > 3
 
+    -- Thả cần (Index 22)
     eventsFolder:GetChildren()[22]:FireServer()
 end
-
 --================ ĐI BÁN VÀ QUAY LẠI ================
 local function sellAndReturn()
     if state.isSelling or not state.AutoFish then return end
@@ -217,11 +244,9 @@ local function sellAndReturn()
     castRod()
 end
 
---================ CHECK FISH HOOKED ================
 local function isFishHooked()
-    return healthFrame.Visible and distanceFrame.Visible
+    return healthFrame.Visible 
 end
-
 --================ CHECK TARGET FISH ================
 local function isTargetFish()
     local name = fishNameLabel.Text
@@ -326,7 +351,7 @@ local function startAutoGacha()
     end)
 end
 
---================ LOAD UI LIBRARY & WINDOW (Giữ nguyên phần UI của bạn) ================
+--================ LOAD UI LIBRARY & WINDOW ================
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/Framework.lua"))()
 local Window = Library:Window({
     Title  = "Botanist Fishing + Auto Sell",
@@ -340,9 +365,10 @@ local Tab = Window:Tab({ Title = "Fishing", Icon = "fish" })
 
 Tab:Toggle({
     Title = "Auto Fishing",
-    Value = false,
+    Value = state.AutoFish, -- Sử dụng giá trị đã load từ file
     Callback = function(v)
         state.AutoFish = v
+        save() -- Lưu trạng thái
         if v then
             task.wait(1)
             castRod()
@@ -357,31 +383,37 @@ Tab:Dropdown({
     Title = "Fish Rarity",
     Multi = true,
     List = ALL_RARITIES,
-    Value = state.SelectedRarity,
-    Callback = function(list) state.SelectedRarity = list end
+    Value = state.SelectedRarity, -- Sử dụng giá trị đã load từ file
+    Callback = function(list) 
+        state.SelectedRarity = list 
+        save() -- Lưu danh sách độ hiếm đã chọn
+    end
 })
-
 
 Tab:Slider({
     Title = "Spam Delay (ms)",
     Min = 20, Max = 300,
     Value = state.SpamDelay * 1000,
-    Callback = function(v) state.SpamDelay = v / 1000 end
+    Callback = function(v) 
+        state.SpamDelay = v / 1000 
+        save() -- Lưu độ trễ spam
+    end
 })
 
+--================ MULTI-ROD SKILLS TAB ================
 local SkillTab = Window:Tab({ Title = "Multi-Rod Skills", Icon = "sword" })
 
-SkillTab:Section({ Title = "Select Rod Skills " })
+SkillTab:Section({ Title = "Select Rod Skills" })
 
 for _, rodName in ipairs(MY_RODS) do
     SkillTab:Dropdown({
         Title = rodName,
         List = SKILL_OPTIONS,
         Multi = true,
-        Value = state.RodSettings[rodName],
+        Value = state.RodSettings[rodName], -- Quan trọng: Load lại các skill đã tích từ trước
         Callback = function(opts)
-
             state.RodSettings[rodName] = opts 
+            save() -- Lưu cấu hình Skill cho từng loại cần
         end
     })
 end
