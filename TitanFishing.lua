@@ -82,22 +82,48 @@ task.spawn(function()
     end
 end)
 
-local function getButtonCenter(guiObject)
-    local pos = guiObject.AbsolutePosition
-    local size = guiObject.AbsoluteSize
-    local centerX = pos.X + (size.X / 2)
-    local centerY = pos.Y + (size.Y / 2) + 36 
+-- local function getButtonCenter(guiObject)
+--     local pos = guiObject.AbsolutePosition
+--     local size = guiObject.AbsoluteSize
+--     local centerX = pos.X + (size.X / 2)
+--     local centerY = pos.Y + (size.Y / 2) + 36 
     
-    return centerX, centerY
-end
+--     return centerX, centerY
+-- end
 
--- Định nghĩa hàm click gọn ở đầu script
+-- -- Định nghĩa hàm click gọn ở đầu script
+-- local function clickGui(guiObject)
+--     if not guiObject then return end
+--     local x, y = getButtonCenter(guiObject)
+--     VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+--     task.wait(0.1)
+--     VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+-- end
+
 local function clickGui(guiObject)
     if not guiObject then return end
-    local x, y = getButtonCenter(guiObject)
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-    task.wait(0.1)
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+    
+    -- 1. Ưu tiên firesignal (Cực mượt nếu executor hỗ trợ)
+    if firesignal then
+        firesignal(guiObject.MouseButton1Click)
+        firesignal(guiObject.MouseButton1Down)
+        firesignal(guiObject.Activated)
+        if guiObject:IsA("ImageButton") or guiObject:IsA("TextButton") then
+            firesignal(guiObject.TouchTap)
+        end
+    else
+        -- 2. Dùng VirtualInputManager giả lập theo tọa độ nhưng không cộng 36
+        -- Cách này dùng AbsolutePosition nên PC hay Mobile đều trúng tâm nút
+        local pos = guiObject.AbsolutePosition
+        local size = guiObject.AbsoluteSize
+        local centerX = pos.X + (size.X / 2)
+        local centerY = pos.Y + (size.Y / 2) + (game:GetService("GuiService"):GetGuiInset().Y)
+        
+        local VIM = game:GetService("VirtualInputManager")
+        VIM:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+        task.wait(0.05)
+        VIM:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+    end
 end
 
 --================ DI CHUYỂN THÔNG MINH ================
@@ -138,6 +164,20 @@ local function getNearestFishSeller()
     return nearest
 end
 
+local function castRod()
+    if state.isSelling or not state.AutoFish then return end
+    
+    fishHooked = false
+    lastCastTime = tick()
+    eventsFolder:GetChildren()[9]:FireServer()
+    
+    local startGong = tick()
+    repeat 
+        task.wait(0.1) 
+    until luckBar.Size.Y.Scale >= state.LuckThreshold or (tick() - startGong) > 3
+
+    eventsFolder:GetChildren()[22]:FireServer()
+end
 
 --================ ĐI BÁN VÀ QUAY LẠI ================
 local function sellAndReturn()
@@ -191,20 +231,6 @@ local function isTargetFish()
     return false
 end
 
-local function castRod()
-    if state.isSelling or not state.AutoFish then return end
-    
-    fishHooked = false
-    lastCastTime = tick()
-    eventsFolder:GetChildren()[9]:FireServer()
-    
-    local startGong = tick()
-    repeat 
-        task.wait(0.1) 
-    until luckBar.Size.Y.Scale >= state.LuckThreshold or (tick() - startGong) > 3
-
-    eventsFolder:GetChildren()[22]:FireServer()
-end
 
 --================ SPAM SKILLS ================
 local function startSpamming()
@@ -258,7 +284,7 @@ end)
 notificationFrame.ChildAdded:Connect(function(child)
     task.wait(0.2)
     local label = child:IsA("TextLabel") and child or child:FindFirstChildOfClass("TextLabel")
-    if label and string.find(label.Text, "Full") then
+    if label and string.find(label.Text, "Fish") then
         sellAndReturn()
     end
 end)
