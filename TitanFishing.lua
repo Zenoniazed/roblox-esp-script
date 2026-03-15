@@ -36,8 +36,8 @@ local buttonAll = buttonMain:WaitForChild("All") -- ImageButton
 local buttonClose = buttonMain:WaitForChild("Close")
 
 local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
-local castPressRemote = eventsFolder:GetChildren()[9]  -- Index 9: Nhấn
-local castReleaseRemote = eventsFolder:GetChildren()[22] -- Index 20: Thả
+local castPressRemote = eventsFolder:GetChildren()[12]  -- Index 9: Nhấn
+local castReleaseRemote = eventsFolder:GetChildren()[60] -- Index 20: Thả
 
 
 -- Thông báo đầy rương
@@ -49,15 +49,15 @@ local CONFIG = "TitanFishing.json"
 
 local state = {
     AutoFish = false,
+	EnableSpam2=false,
     LuckThreshold = 0.95,
     SpamDelay = 0.04,
     WaitNext = 3,
     SelectedRarity = {"Rare","Epic","Legendary","Mythic","Divine"},
-    isSelling = false, 
-    isMoving = false,
 	AutoGacha = false,
     GachaDelay = 1,
     RodSettings = {
+		["3 in 1 Diamond Threaded Steel Rod"] = {},
 		["3 in 1 Gold Threaded Steel Rod"] = {},
 		["3 in 1 Threaded Steel Rod"] = {},
 		["Titanium Steel Rod"] = {},
@@ -103,7 +103,7 @@ load()
 
 local ALL_RARITIES = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine"}
 local SKILL_OPTIONS = {"Skill 1", "Skill 2", "Skill 3", "Skill 4"}
-local MY_RODS = {"3 in 1 Gold Threaded Steel Rod","3 in 1 Threaded Steel Rod","Titanium Steel Rod","Steel Rod","Bamboo Rod","Golden Rod","Stone Rod","Gold Plated Rod","Rusty Iron Rod","Upgraded Wooden Rod","Wooden Rod"}
+local MY_RODS = {"3 in 1 Diamond Threaded Steel Rod","3 in 1 Gold Threaded Steel Rod","3 in 1 Threaded Steel Rod","Titanium Steel Rod","Steel Rod","Bamboo Rod","Golden Rod","Stone Rod","Gold Plated Rod","Rusty Iron Rod","Upgraded Wooden Rod","Wooden Rod"}
 
 local dangSpam = false
 local fishHooked = false
@@ -112,16 +112,16 @@ local lastCastTime = 0
 --================ LOGIC NHẢY (JUMP LOGIC) ================
 task.spawn(function()
     while true do
-        if state.isMoving then
+        -- CHỈ nhảy khi AutoFish đang BẬT và đang có lệnh di chuyển (isMoving)
+        if state.AutoFish and isMoving then
             local s = humanoid:GetState()
             if s ~= Enum.HumanoidStateType.Jumping and s ~= Enum.HumanoidStateType.Freefall then
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             end
         end
-        task.wait(0.5)
+        task.wait(0.5) -- Kiểm tra mỗi 0.5s để không bị spam quá mức
     end
 end)
-
 
 
 local function clickGui(guiObject)
@@ -156,7 +156,7 @@ local function smartMoveTo(targetPos)
     path:ComputeAsync(hrp.Position, targetPos)
     if path.Status ~= Enum.PathStatus.Success then return end
 
-    state.isMoving = true
+    isMoving = true
     for _, waypoint in ipairs(path:GetWaypoints()) do
         if not state.AutoFish then break end -- Dừng nếu tắt Auto
         humanoid:MoveTo(waypoint.Position)
@@ -165,7 +165,7 @@ local function smartMoveTo(targetPos)
         end
         humanoid.MoveToFinished:Wait()
     end
-    state.isMoving = false
+    isMoving = false
 end
 
 --================ TÌM NPC BÁN CÁ ================
@@ -189,46 +189,125 @@ local function getNearestFishSeller()
 end
 
 local savedCastPos = nil
+local isSelling = false 
+local isMoving = false  
+local PRESS_IDX = 9   
+local RELEASE_IDX = 22
 
-local function castRod()
-    if state.isSelling or not state.AutoFish then return end
-
-	if savedCastPos then
-        -- Nếu khoảng cách xa hơn 2 studs mới cần đi bộ về
-        if (hrp.Position - savedCastPos.Position).Magnitude > 2 then
-            state.isMoving = true
-            smartMoveTo(savedCastPos.Position) -- Tự tìm đường đi về
+-- local function castRod()
+--     if isSelling or not state.AutoFish then return end
+-- 	if savedCastPos then
+--         local distance = (hrp.Position - savedCastPos.Position).Magnitude
+--         if distance > 2 then
+--             state.isMoving = true
+--             -- Chạy tới vị trí cũ
+--             smartMoveTo(savedCastPos.Position) 
             
-            -- Sau khi đi tới nơi, xoay mặt về hướng cũ cho giống thật
-            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + savedCastPos.LookVector)
-            state.isMoving = false
-            task.wait(0.3) -- Nghỉ một chút cho tự nhiên
-        end
-    else
-        -- Lưu vị trí hiện tại làm gốc cho lần đầu tiên bật Auto
-        savedCastPos = hrp.CFrame
-    end
+--             -- Ép nhân vật xoay mặt về hướng LookVector đã lưu
+--             hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + savedCastPos.LookVector)
+            
+--             state.isMoving = false
+--             task.wait(0.3) -- Nghỉ cho tự nhiên
+--         end
+--     else
+--         -- Lưu vị trí + hướng nhìn lần đầu tiên
+--         savedCastPos = hrp.CFrame
+--     end
 	
-    fishHooked = false
-    lastCastTime = tick()
-	
-    -- Nhấn gồng (Index 9)
-    eventsFolder:GetChildren()[9]:FireServer()
+--     fishHooked = false
+--     lastCastTime = tick()
     
-    local startGong = tick()
-    repeat 
-        task.wait(0.1)
-        -- Kiểm tra thanh Fill của LuckBar
-        local currentLuck = luckBar.Size.Y.Scale
-    until currentLuck >= state.LuckThreshold or (tick() - startGong) > 3
+--     -- Nhấn gồng (Index 9)
+--     eventsFolder:GetChildren()[9]:FireServer()
+    
+--     local startGong = tick()
+--     repeat 
+--         task.wait(0.1)
+--         -- Kiểm tra thanh Fill của LuckBar
+--         local currentLuck = luckBar.Size.Y.Scale
+--     until currentLuck >= state.LuckThreshold or (tick() - startGong) > 3
 
-    -- Thả cần (Index 22)
-    eventsFolder:GetChildren()[22]:FireServer()
+--     -- Thả cần (Index 22)
+--     eventsFolder:GetChildren()[22]:FireServer()
+-- end
+--================ HÀM TRANG BỊ (TÌM VÀ CẦM) ================
+--================ VỆ SĨ TRANG BỊ (CHẠY RIÊNG BIỆT) ================
+local function forceEquipRod()
+    local char = player.Character
+    if not char then return end
+    
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local backpack = player:FindFirstChild("Backpack")
+    if not humanoid or not backpack then return end
+
+    -- 1. Kiểm tra xem trên tay đã có cần câu chưa (tìm item có tên chứa "Rod")
+    local currentTool = char:FindFirstChildOfClass("Tool")
+    if currentTool and string.find(string.lower(currentTool.Name), "rod") then
+        return -- Đã cầm đúng cần rồi, không làm gì thêm
+    end
+
+    -- 2. Nếu chưa cầm, tìm trong Backpack và trang bị ngay
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if tool:IsA("Tool") and string.find(string.lower(tool.Name), "rod") then
+            humanoid:EquipTool(tool)
+            break 
+        end
+    end
+end
+
+-- Vòng lặp kiểm tra liên tục (Tách biệt hoàn toàn với logic câu cá)
+task.spawn(function()
+    while true do
+        -- ĐIỀU KIỆN: Chỉ cầm khi bật Auto Fishing HOẶC đang bật Dò Skill
+        -- Lưu ý: Kiểm tra lại biến state.AutoFish của bạn xem có đúng tên không
+        if (state and state.AutoFish) or AutoDoSkill or scanning then
+            forceEquipRod()
+        end
+        task.wait(0.5) -- Kiểm tra mỗi 0.5 giây
+    end
+end)
+--================ DEBUG LOG FUNCTION ================
+--================ HÀM QUĂNG CẦN CHUẨN ================
+local function castRod()
+    if isSelling or not state.AutoFish then return end
+
+    if savedCastPos then
+    local distance = (hrp.Position - savedCastPos.Position).Magnitude
+    if distance > 3 then
+        -- Nếu ở xa thì mới đi và bật nhảy
+        smartMoveTo(savedCastPos.Position)
+        hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + savedCastPos.LookVector)
+        task.wait(0.3)
+    end
+    -- QUAN TRỌNG: Dù xa hay gần, sau bước này phải ép nhân vật đứng yên
+    isMoving = false 
+	elseif not savedCastPos then
+		savedCastPos = hrp.CFrame
+	end
+
+    local remotes = eventsFolder:GetChildren()
+    local pRemote = remotes[PRESS_IDX]
+    local rRemote = remotes[RELEASE_IDX]
+
+    if pRemote and rRemote then
+		fishHooked = false
+        lastCastTime = tick()
+        pRemote:FireServer()
+        
+        local start = tick()
+        repeat 
+            task.wait(0.05)
+        until luckBar.Size.Y.Scale >= state.LuckThreshold or (tick() - start) > 3
+        
+        rRemote:FireServer()
+    else
+        warn("⚠️ Index Remote đang bị sai! Hãy kiểm tra lại F9.")
+    end
 end
 --================ ĐI BÁN VÀ QUAY LẠI ================
 local function sellAndReturn()
-    if state.isSelling or not state.AutoFish then return end
-    state.isSelling = true
+    if isSelling or not state.AutoFish then return end
+    isSelling = true
     dangSpam = false
     local oldPos = hrp.Position
     local npc = getNearestFishSeller()
@@ -251,14 +330,9 @@ local function sellAndReturn()
 
         smartMoveTo(oldPos)
         
-        -- Tự trang bị lại cần câu (Tool)
-        local tool = player.Backpack:FindFirstChildWhichIsA("Tool") or player.Character:FindFirstChildWhichIsA("Tool")
-        if tool and tool.Parent ~= player.Character then
-            humanoid:EquipTool(tool)
-        end
     end
     
-    state.isSelling = false
+    isSelling = false
     task.wait(1)
     castRod()
 end
@@ -275,38 +349,123 @@ local function isTargetFish()
     return false
 end
 
+local dangSpam2 = false
+--================ SPAM SKILLS 2 (ĐỘC LẬP) ================
+local function startSpamming2()
+    if dangSpam2 then return end -- Tránh chạy chồng nhiều vòng lặp
+    dangSpam2 = true
 
---================ SPAM SKILLS ================
-local function startSpamming()
-    if dangSpam then return end
-    dangSpam = true
     task.spawn(function()
+        -- Lấy Remote (Dựa trên code cũ của bạn là cái thứ 4)
         local skillRemote = eventsFolder:GetChildren()[4]
         
-        while dangSpam and state.AutoFish and not state.isSelling do
-            if not isFishHooked() then break end
-
+        -- Chạy khi biến EnableSpam2 còn bật
+        while state.EnableSpam2 do
+            -- Duyệt qua danh sách Rod và Skill người dùng chọn
             for rodName, selectedSkills in pairs(state.RodSettings) do
-                -- selectedSkills là bảng dạng {"Skill 1", "Skill 3"}
+                if not state.EnableSpam2 then break end
+                
                 for _, skillText in ipairs(selectedSkills) do
-                    if not isFishHooked() or state.isSelling then break end
+                    if not state.EnableSpam2 then break end
                     
-                    -- Lấy con số từ chuỗi "Skill 1" -> 1, "Skill 2" -> 2
+                    -- Lấy ID từ chuỗi "Skill 1" -> 1
                     local skillID = tonumber(string.match(skillText, "%d+"))
-                    if skillID then
+                    if skillID and skillRemote then
                         skillRemote:FireServer(rodName, skillID)
                     end
                 end
             end
-            task.wait(state.SpamDelay)
+            
+            -- Sử dụng Delay riêng hoặc dùng chung Delay cũ
+            task.wait(state.SpamDelay or 0.1) 
+        end
+        
+        dangSpam2 = false
+        print("🛑 Đã dừng Spam Skill 2")
+    end)
+end
+
+local SKILL_IDX = 4 
+local skillFound = false
+local AutoDoSkill = false
+local healthUI = player.PlayerGui:WaitForChild("FishStats"):WaitForChild("HealthFrame"):WaitForChild("HealthText")
+local SKILL_IDX_SPAM = 4
+
+local function startSpamming()
+    if dangSpam then return end
+    dangSpam = true
+    
+    task.spawn(function()
+        local allEvents = eventsFolder:GetChildren()
+        
+        while dangSpam and state.AutoFish do
+            if not healthFrame.Visible then break end
+
+            -- Lấy giá trị máu hiện tại (Ví dụ: "2062500/2062500")
+            local currentHealthStr = healthUI.Text 
+            
+            if AutoDoSkill and not skillFound then
+                -- GIAI ĐOẠN DÒ: Thử Index hiện tại
+                local testRemote = allEvents[SKILL_IDX]
+                if testRemote then
+                    -- Thử dùng Skill 1 của cần đang trang bị
+                    for rodName, _ in pairs(state.RodSettings) do
+                        pcall(function()
+                            testRemote:FireServer(rodName, 1) 
+							gachaUI.Enabled = false
+							-- Tắt cả cái khung Background bên trong (nếu có)
+							if gachaUI:FindFirstChild("Background") then
+								gachaUI.Background.Visible = false
+							end
+                        end)
+                    end
+                end
+
+                -- Đợi một chút để game trừ máu và cập nhật UI
+                task.wait(1) 
+
+                -- SO SÁNH: Nếu máu hiện tại khác với lúc chưa gõ Remote
+                if healthUI.Text ~= currentHealthStr then
+                    skillFound = true
+                    print("🎯 Đã bắt được SKILL_IDX đúng: [" .. SKILL_IDX .. "]", "Green")
+					SKILL_IDX_SPAM= SKILL_IDX
+                else
+                    -- Nếu không đổi, lần sau thử Index tiếp theo
+                    SKILL_IDX = SKILL_IDX + 1
+                    if SKILL_IDX > 100 then SKILL_IDX = 1 end
+                    print("🔍 Skill không khớp, đang chuẩn bị thử Index: " .. SKILL_IDX)
+                end
+            else
+                -- GIAI ĐOẠN SPAM: Đã tìm thấy Index, giờ chỉ việc xả skill
+                local skillRemote = allEvents[SKILL_IDX_SPAM]
+                if skillRemote then
+                    for rodName, selectedSkills in pairs(state.RodSettings) do
+                        for _, skillText in ipairs(selectedSkills) do
+                            local skillID = tonumber(string.match(skillText, "%d+"))
+                            if skillID then
+                                pcall(function() 
+                                    skillRemote:FireServer(rodName, skillID) 
+                                end)
+                            end
+                        end
+                    end
+                end
+                task.wait(state.SpamDelay) -- Delay spam bình thường
+            end
+            
+            -- Nếu đang trong chế độ dò, ta đợi lâu hơn chút để tránh lướt qua index đúng
+            if not skillFound then
+                task.wait(0.1)
+            end
         end
         dangSpam = false
     end)
 end
 
+
 --================ EVENTS ================
 healthFrame:GetPropertyChangedSignal("Visible"):Connect(function()
-    if not state.AutoFish or state.isSelling then return end
+    if not state.AutoFish or isSelling then return end
 
     if healthFrame.Visible then
         fishHooked = true
@@ -316,7 +475,7 @@ healthFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     else
         dangSpam = false
         task.wait(state.WaitNext)
-        if state.AutoFish and not state.isSelling then
+        if state.AutoFish and not isSelling then
             castRod()
         end
         task.wait(0.5)
@@ -342,7 +501,6 @@ task.spawn(function()
             if not fishHooked then
 
                 if tick() - lastCastTime > 10 then
-
                     castRod()
                 end
 
@@ -388,12 +546,17 @@ Tab:Toggle({
     Callback = function(v)
         state.AutoFish = v
         save() -- Lưu trạng thái
+		isMoving = false
         if v then
+			isMoving = false
             task.wait(1)
             castRod()
         else
             dangSpam = false
-            state.isMoving = false
+            isMoving = false    -- Đã sửa thành biến cục bộ
+            isSelling = false   -- Reset luôn trạng thái bán cá (nếu đang dở)
+            savedCastPos = nil
+			humanoid.Jump = false
         end
     end
 })
@@ -419,10 +582,160 @@ Tab:Slider({
     end
 })
 
+
+local chargeUI = player.PlayerGui:WaitForChild("Charge"):WaitForChild("Main")
+local scanning = false
+
+Tab:Toggle({
+    Title = "🚀 Tự Động Dò Index (LuckBar Logic)",
+    Default = false,
+    Callback = function(v)
+        scanning = v
+        if v then
+            task.spawn(function()
+                local remotes = eventsFolder:GetChildren()
+                PRESS_IDX = nil
+                RELEASE_IDX = nil
+
+                -- GIAI ĐOẠN 1: Tìm PRESS (Làm thanh gồng nhảy Scale > 0)
+                print("🔍 Đang dò PRESS_IDX...", "Yellow")
+                for i = 1, #remotes do
+                    if not scanning then return end
+                    
+                    -- Đảm bảo thanh bar đang ở mức 0 trước khi thử
+                    if luckBar.Size.Y.Scale > 0 then
+                        -- Nếu đang gồng dở, cần reset hoặc đợi (thường là do trúng remote Release trước đó)
+                        task.wait(0.5) 
+                    end
+
+                    remotes[i]:FireServer()
+                    task.wait(0.5) -- Đợi server phản hồi Scale
+					gachaUI.Enabled = false
+					-- Tắt cả cái khung Background bên trong (nếu có)
+					if gachaUI:FindFirstChild("Background") then
+						gachaUI.Background.Visible = false
+					end
+
+                    if luckBar.Size.Y.Scale > 0 then
+                        PRESS_IDX = i
+                        print("✅ PRESS_IDX là: [" .. i .. "]", "Green")
+                        break
+                    end
+                end
+
+                -- GIAI ĐOẠN 2: Tìm RELEASE (Làm thanh gồng reset về 0)
+                if PRESS_IDX then
+                    print("🔍 Đang dò RELEASE_IDX (Reset từ 1)...", "Yellow")
+                    task.wait(1)
+                    
+                    for i = 1, #remotes do
+                        if not scanning then return end
+                        if i == PRESS_IDX then continue end -- Bỏ qua chính nó
+
+                        -- BƯỚC QUAN TRỌNG: Phải gồng lên trước rồi mới thử Release
+                        if luckBar.Size.Y.Scale == 0 then
+                            remotes[PRESS_IDX]:FireServer()
+                            task.wait(0.4)
+                        end
+
+                        -- Thử Remote hiện tại để xem nó có làm Scale về 0 không
+                        remotes[i]:FireServer()
+                        task.wait(0.4)
+
+                        if luckBar.Size.Y.Scale == 0 then
+                            RELEASE_IDX = i
+                            print("✅ RELEASE_IDX là: [" .. i .. "]", "Green")
+                            scanning = false
+                            break
+                        end
+                    end
+                end
+
+                if not PRESS_IDX or not RELEASE_IDX then
+                    print("❌ Thất bại! Hãy thử đứng gần nước hơn.", "Red")
+                end
+                scanning = false
+            end)
+        else
+            scanning = false
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "Press Index (Gồng)",
+    Min = 1, Max = 100,
+    Value = PRESS_IDX,
+    Callback = function(v)
+        PRESS_IDX = v
+    end
+})
+
+Tab:Slider({
+    Title = "Release Index (Thả)",
+    Min = 1, Max = 100,
+    Value = RELEASE_IDX,
+    Callback = function(v)
+        RELEASE_IDX = v
+    end
+})
+
+ -- Mặc định là 4 như code cũ của bạn
+Tab:Toggle({
+    Title = "🔍 Chế độ Dò Skill Tự Động",
+    Default = false,
+    Callback = function(v)
+        AutoDoSkill = v
+        if v then
+            skillFound = false 
+            print("Chế độ dò: BẬT (Sẽ nhảy số tìm Remote)", "Yellow")
+        else
+            print("Chế độ dò: TẮT (Spam cố định Index hiện tại)", "White")
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "Skill Remote Index",
+    Min = 1, Max = 100,
+    Value = SKILL_IDX_SPAM,
+    Callback = function(v)
+        SKILL_IDX_SPAM = v
+    end
+})
+Tab:Button({
+    Title = "⏭️ Bỏ qua Index hiện tại (Dò Tiếp)",
+    Callback = function()
+        skillFound = false        -- Đưa trạng thái về chưa tìm thấy
+        AutoDoSkill = true        -- Ép bật chế độ dò
+        SKILL_IDX = SKILL_IDX + 1 -- Nhảy sang số tiếp theo ngay lập tức
+        
+        if SKILL_IDX > 100 then SKILL_IDX = 1 end
+        
+        print("⚠️ Đã bỏ qua Index cũ. Đang dò tiếp từ: " .. SKILL_IDX, "Yellow")
+    end
+})
+
 --================ MULTI-ROD SKILLS TAB ================
 local SkillTab = Window:Tab({ Title = "Multi-Rod Skills", Icon = "sword" })
 
 SkillTab:Section({ Title = "Select Rod Skills" })
+SkillTab:Toggle({
+    Title = "Enable Spam Skill (Manual)",
+    Description = "Spam chiêu mà không cần bật Auto Fish",
+    Value = state.EnableSpam2,
+    Callback = function(v)
+        state.EnableSpam2 = v
+        save() 
+        
+        if v then
+           
+            startSpamming2()
+        else
+            
+        end
+    end
+})
 
 for _, rodName in ipairs(MY_RODS) do
     SkillTab:Dropdown({
@@ -436,6 +749,7 @@ for _, rodName in ipairs(MY_RODS) do
         end
     })
 end
+
 
 local GachaTab = Window:Tab({ Title = "Gacha", Icon = "star" })
 
