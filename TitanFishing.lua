@@ -642,7 +642,7 @@ end)
 notificationFrame.ChildAdded:Connect(function(child)
     task.wait(0.2)
     local label = child:IsA("TextLabel") and child or child:FindFirstChildOfClass("TextLabel")
-    if label and string.find(label.Text, "Full") then
+    if label and string.find(label.Text, "Fish") then
         sellAndReturn()
     end
 end)
