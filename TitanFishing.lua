@@ -43,6 +43,8 @@ local castReleaseRemote = eventsFolder:GetChildren()[60] -- Index 20: Thả
 -- Thông báo đầy rương
 local notificationFrame = playerGui:WaitForChild("Notification"):WaitForChild("Frame")
 local gachaUI = player.PlayerGui:WaitForChild("GachaUI")
+local chargeUI = player.PlayerGui:WaitForChild("Charge"):WaitForChild("Main")
+
 
 --================ STATE ================
 local CONFIG = "TitanFishing.json"
@@ -50,13 +52,14 @@ local CONFIG = "TitanFishing.json"
 local state = {
     AutoFish = false,
 	EnableSpam2=false,
-    LuckThreshold = 0.95,
+    LuckThreshold = 0.1,
     SpamDelay = 0.04,
-    WaitNext = 3,
+    WaitNext = 2,
     SelectedRarity = {"Rare","Epic","Legendary","Mythic","Divine"},
 	AutoGacha = false,
     GachaDelay = 1,
     RodSettings = {
+		["Phi Thien Rod"] = {},
 		["3 in 1 Diamond Threaded Steel Rod"] = {},
 		["3 in 1 Gold Threaded Steel Rod"] = {},
 		["3 in 1 Threaded Steel Rod"] = {},
@@ -71,6 +74,20 @@ local state = {
         ["Wooden Rod"] = {},
     }
 }
+
+local IslandPositions = {
+    ["Island 1"] = CFrame.new(271, 22, 53),
+    ["Island 2"] = CFrame.new(1765, 19, -378),
+    ["Island 3"] = CFrame.new(897, 20, 1241),
+    ["Island 4"] = CFrame.new(791, 21, -985),
+    ["Island 5"] = CFrame.new(-423, 22, 961)
+}
+
+local isHuntingBoss = false
+local originalPos = nil        -- Lưu vị trí câu cũ
+local originalRarities = {}
+local isSelling = false 
+local isMoving = false  
 
 local function save()
     if writefile then
@@ -103,11 +120,13 @@ load()
 
 local ALL_RARITIES = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine"}
 local SKILL_OPTIONS = {"Skill 1", "Skill 2", "Skill 3", "Skill 4"}
-local MY_RODS = {"3 in 1 Diamond Threaded Steel Rod","3 in 1 Gold Threaded Steel Rod","3 in 1 Threaded Steel Rod","Titanium Steel Rod","Steel Rod","Bamboo Rod","Golden Rod","Stone Rod","Gold Plated Rod","Rusty Iron Rod","Upgraded Wooden Rod","Wooden Rod"}
+local MY_RODS = {"Phi Thien Rod","3 in 1 Diamond Threaded Steel Rod","3 in 1 Gold Threaded Steel Rod","3 in 1 Threaded Steel Rod","Titanium Steel Rod","Steel Rod","Bamboo Rod","Golden Rod","Stone Rod","Gold Plated Rod","Rusty Iron Rod","Upgraded Wooden Rod","Wooden Rod"}
 
 local dangSpam = false
 local fishHooked = false
 local lastCastTime = 0
+local scanning = false
+local globalTargetBoss = nil
 
 --================ LOGIC NHẢY (JUMP LOGIC) ================
 task.spawn(function()
@@ -123,6 +142,26 @@ task.spawn(function()
     end
 end)
 
+local function getActiveBossIsland()
+    local BossZones = workspace:FindFirstChild("BossZones")
+    if not BossZones then return nil end
+    
+    for _, island in pairs(BossZones:GetChildren()) do
+        local zone = island:FindFirstChild("BossSpawnZone")
+        -- Nếu Zone có chứa vật thể (Boss/Model) bên trong
+        if zone and #zone:GetChildren() > 0 then
+            return island.Name
+        end
+    end
+    return nil
+end
+
+task.spawn(function()
+    while true do
+        globalTargetBoss = getActiveBossIsland() -- Luôn cập nhật tên Boss mỗi 1 giây
+        task.wait(1)
+    end
+end)
 
 local function clickGui(guiObject)
     if not guiObject then return end
@@ -189,47 +228,11 @@ local function getNearestFishSeller()
 end
 
 local savedCastPos = nil
-local isSelling = false 
-local isMoving = false  
+
 local PRESS_IDX = 9   
 local RELEASE_IDX = 22
+local GACHA_IDX = 3
 
--- local function castRod()
---     if isSelling or not state.AutoFish then return end
--- 	if savedCastPos then
---         local distance = (hrp.Position - savedCastPos.Position).Magnitude
---         if distance > 2 then
---             state.isMoving = true
---             -- Chạy tới vị trí cũ
---             smartMoveTo(savedCastPos.Position) 
-            
---             -- Ép nhân vật xoay mặt về hướng LookVector đã lưu
---             hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + savedCastPos.LookVector)
-            
---             state.isMoving = false
---             task.wait(0.3) -- Nghỉ cho tự nhiên
---         end
---     else
---         -- Lưu vị trí + hướng nhìn lần đầu tiên
---         savedCastPos = hrp.CFrame
---     end
-	
---     fishHooked = false
---     lastCastTime = tick()
-    
---     -- Nhấn gồng (Index 9)
---     eventsFolder:GetChildren()[9]:FireServer()
-    
---     local startGong = tick()
---     repeat 
---         task.wait(0.1)
---         -- Kiểm tra thanh Fill của LuckBar
---         local currentLuck = luckBar.Size.Y.Scale
---     until currentLuck >= state.LuckThreshold or (tick() - startGong) > 3
-
---     -- Thả cần (Index 22)
---     eventsFolder:GetChildren()[22]:FireServer()
--- end
 --================ HÀM TRANG BỊ (TÌM VÀ CẦM) ================
 --================ VỆ SĨ TRANG BỊ (CHẠY RIÊNG BIỆT) ================
 local function forceEquipRod()
@@ -260,30 +263,31 @@ task.spawn(function()
     while true do
         -- ĐIỀU KIỆN: Chỉ cầm khi bật Auto Fishing HOẶC đang bật Dò Skill
         -- Lưu ý: Kiểm tra lại biến state.AutoFish của bạn xem có đúng tên không
-        if (state and state.AutoFish) or AutoDoSkill or scanning then
+        if state.AutoFish then
             forceEquipRod()
         end
         task.wait(0.5) -- Kiểm tra mỗi 0.5 giây
     end
 end)
---================ DEBUG LOG FUNCTION ================
+
+local function teleCastPost()
+	if savedCastPos then
+		local distance = (hrp.Position - savedCastPos.Position).Magnitude
+		if distance > 3 then
+		local targetPos = savedCastPos.Position 
+			
+			hrp.CFrame = CFrame.new(targetPos, targetPos + savedCastPos.LookVector)
+
+			task.wait(0.2)
+		end
+		isMoving = false 
+		elseif not savedCastPos then
+			savedCastPos = hrp.CFrame
+		end
+end
 --================ HÀM QUĂNG CẦN CHUẨN ================
 local function castRod()
     if isSelling or not state.AutoFish then return end
-
-    if savedCastPos then
-    local distance = (hrp.Position - savedCastPos.Position).Magnitude
-    if distance > 3 then
-        -- Nếu ở xa thì mới đi và bật nhảy
-        smartMoveTo(savedCastPos.Position)
-        hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + savedCastPos.LookVector)
-        task.wait(0.3)
-    end
-    -- QUAN TRỌNG: Dù xa hay gần, sau bước này phải ép nhân vật đứng yên
-    isMoving = false 
-	elseif not savedCastPos then
-		savedCastPos = hrp.CFrame
-	end
 
     local remotes = eventsFolder:GetChildren()
     local pRemote = remotes[PRESS_IDX]
@@ -334,6 +338,7 @@ local function sellAndReturn()
     
     isSelling = false
     task.wait(1)
+
     castRod()
 end
 
@@ -349,6 +354,206 @@ local function isTargetFish()
     return false
 end
 
+
+
+local SKILL_IDX = 4 
+local skillFound = false
+local AutoDoSkill = false
+local healthUI = player.PlayerGui:WaitForChild("FishStats"):WaitForChild("HealthFrame"):WaitForChild("HealthText")
+local SKILL_IDX_SPAM = 4
+
+function breakVelocity()
+    local char = Players.LocalPlayer.Character
+    if not char then return end
+
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            -- API mới (QUAN TRỌNG)
+            v.AssemblyLinearVelocity = Vector3.zero
+            v.AssemblyAngularVelocity = Vector3.zero
+            
+            -- Backup API cũ (giữ lại cho chắc)
+            v.Velocity = Vector3.zero
+            v.RotVelocity = Vector3.zero
+        end
+    end
+end
+
+local function startScanningIndex()
+    if not scanning then return end
+    
+    task.spawn(function()
+
+        local remotes = eventsFolder:GetChildren()
+        PRESS_IDX = nil
+        RELEASE_IDX = nil
+
+        -- GIAI ĐOẠN 1: Tìm PRESS (Làm thanh gồng nhảy Scale > 0)
+        print("🔍 Đang dò PRESS_IDX...", "Yellow")
+        for i = 1, #remotes do
+            if not scanning then return end
+
+			forceEquipRod()
+            
+            -- Đảm bảo thanh bar về 0 trước khi thử
+            if luckBar.Size.Y.Scale > 0 then
+                task.wait(0.2) 
+            end
+
+            remotes[i]:FireServer()
+            task.wait(0.2) -- Đợi server phản hồi Scale
+            
+            -- Xử lý UI Gacha
+            gachaUI.Enabled = false
+            if gachaUI:FindFirstChild("Background") then
+                gachaUI.Background.Visible = false
+            end
+
+            if luckBar.Size.Y.Scale > 0 then
+                PRESS_IDX = i
+                print("✅ PRESS_IDX là: [" .. i .. "]", "Green")
+                break
+            end
+        end
+
+        -- GIAI ĐOẠN 2: Tìm RELEASE (Làm thanh gồng reset về 0)
+        if PRESS_IDX and scanning then
+            print("🔍 Đang dò RELEASE_IDX (Reset từ 1)...", "Yellow")
+            task.wait(1)
+            
+            for i = 1, #remotes do
+                if not scanning then return end
+                if i == PRESS_IDX then continue end 
+
+                -- Phải gồng lên trước khi thử Release
+                if luckBar.Size.Y.Scale == 0 then
+                    remotes[PRESS_IDX]:FireServer()
+                    task.wait(0.2)
+                end
+
+                remotes[i]:FireServer()
+                task.wait(0.2)
+
+                if luckBar.Size.Y.Scale == 0 then
+                    RELEASE_IDX = i
+                    print("✅ RELEASE_IDX là: [" .. i .. "]", "Green")
+                    scanning = false -- Dừng scan khi đã tìm thấy cả hai
+                    break
+                end
+            end
+        end
+
+        if not PRESS_IDX or not RELEASE_IDX then
+            if scanning then -- Chỉ in thông báo lỗi nếu người dùng chưa chủ động tắt scan
+                print("❌ Thất bại! Hãy thử đứng gần nước hơn.", "Red")
+            end
+        end
+        
+        scanning = false
+    end)
+end
+
+local function getCleanID(animString)
+    return tostring(animString):match("%d+") 
+end
+
+local function startSpamming()
+    if dangSpam then return end
+    dangSpam = true
+    
+    task.spawn(function()
+        local allEvents = eventsFolder:GetChildren()
+        local player = game.Players.LocalPlayer
+       	local EXCLUDE_ANIMS = {
+			[getCleanID("rbxassetid://122883590821614")] = true, -- Đợi cá
+			[getCleanID("rbxassetid://108204492506097")] = true, -- Anim phụ 1
+			[getCleanID("rbxassetid://77480657409571")] = true,  -- Thả cần/Thất bại
+			[getCleanID("http://www.roblox.com/asset/?id=180435571")] = true,
+			[getCleanID("http://www.roblox.com/asset/?id=180435792")] = true -- ID URL bạn muốn loại bỏ
+		}
+
+        while dangSpam and state.AutoFish do
+            -- Dừng nếu bảng máu biến mất (hết cá/đứt dây)
+            if not healthFrame.Visible then break end
+
+            local character = player.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if not humanoid then task.wait(0.5) continue end
+            
+            if AutoDoSkill and not skillFound then
+                -- GIAI ĐOẠN DÒ: Thử Remote hiện tại
+                local testRemote = allEvents[SKILL_IDX]
+                if testRemote then
+                    for rodName, _ in pairs(state.RodSettings) do
+                        pcall(function()
+                            testRemote:FireServer(rodName, 1) 
+                            
+                            -- Xử lý UI Gacha (giữ nguyên logic của bạn)
+                            gachaUI.Enabled = false
+                            if gachaUI:FindFirstChild("Background") then
+                                gachaUI.Background.Visible = false
+                            end
+                        end)
+                    end
+                end
+
+                -- Đợi cực ngắn để nhận diện hành động mới (0.1s - 0.15s là đủ)
+                task.wait(0.12) 
+
+                -- KIỂM TRA: Có động tác nào KHÁC với tư thế đợi cá không?
+                local hasChanged = false
+                local tracks = humanoid:GetPlayingAnimationTracks()
+                
+                for _, track in ipairs(tracks) do
+					local fullID = track.Animation.AnimationId
+					local cleanID = getCleanID(fullID) -- Chuyển mọi định dạng (URL, rbxassetid) về dạng số
+					
+					-- Kiểm tra: Nếu có ID số VÀ nó không nằm trong danh sách loại trừ
+					if cleanID and not EXCLUDE_ANIMS[cleanID] then
+						print("🚀 Phát hiện hành động mới (ID: " .. cleanID .. ")")
+						hasChanged = true
+						break
+					end
+				end
+                if hasChanged then
+                    skillFound = true
+                    SKILL_IDX_SPAM = SKILL_IDX
+                    print("🎯 Đã bắt trúng Remote! Phát hiện hành động mới. Index: [" .. SKILL_IDX .. "]", "Green")
+                else
+                    -- Vẫn đứng im (chỉ chạy 12288...) -> Remote sai, thử cái tiếp theo
+                    SKILL_IDX = SKILL_IDX + 1
+                    if SKILL_IDX > #allEvents then SKILL_IDX = 1 end
+                    print("🔍 Index " .. SKILL_IDX .. " không phản hồi, đang dò tiếp...")
+                end
+            else
+                -- GIAI ĐOẠN SPAM: Đã tìm thấy Remote, xả skill theo delay
+                local skillRemote = allEvents[SKILL_IDX_SPAM]
+                if skillRemote then
+                    for rodName, selectedSkills in pairs(state.RodSettings) do
+                        for _, skillText in ipairs(selectedSkills) do
+                            local skillID = tonumber(string.match(skillText, "%d+"))
+                            if skillID then
+								pcall(function() 
+									skillRemote:FireServer(rodName, skillID) 
+								end)
+								
+								task.wait(state.SpamDelay) 
+							end
+                        end
+                    end
+                end
+                
+            end
+            
+            -- Tốc độ dò nhanh khi chưa tìm thấy
+            if not skillFound then
+                task.wait(0.05) 
+            end
+        end
+        dangSpam = false
+    end)
+end
+
 local dangSpam2 = false
 --================ SPAM SKILLS 2 (ĐỘC LẬP) ================
 local function startSpamming2()
@@ -357,7 +562,8 @@ local function startSpamming2()
 
     task.spawn(function()
         -- Lấy Remote (Dựa trên code cũ của bạn là cái thứ 4)
-        local skillRemote = eventsFolder:GetChildren()[4]
+        local remotes = eventsFolder:GetChildren()
+        local skillRemote = remotes[SKILL_IDX_SPAM]
         
         -- Chạy khi biến EnableSpam2 còn bật
         while state.EnableSpam2 do
@@ -371,13 +577,14 @@ local function startSpamming2()
                     -- Lấy ID từ chuỗi "Skill 1" -> 1
                     local skillID = tonumber(string.match(skillText, "%d+"))
                     if skillID and skillRemote then
-                        skillRemote:FireServer(rodName, skillID)
+                        pcall(function()
+                            skillRemote:FireServer(rodName, skillID)
+                        end)
                     end
+					task.wait(state.SpamDelay)
                 end
             end
-            
-            -- Sử dụng Delay riêng hoặc dùng chung Delay cũ
-            task.wait(state.SpamDelay or 0.1) 
+             
         end
         
         dangSpam2 = false
@@ -385,101 +592,49 @@ local function startSpamming2()
     end)
 end
 
-local SKILL_IDX = 4 
-local skillFound = false
-local AutoDoSkill = false
-local healthUI = player.PlayerGui:WaitForChild("FishStats"):WaitForChild("HealthFrame"):WaitForChild("HealthText")
-local SKILL_IDX_SPAM = 4
-
-local function startSpamming()
-    if dangSpam then return end
-    dangSpam = true
-    
-    task.spawn(function()
-        local allEvents = eventsFolder:GetChildren()
-        
-        while dangSpam and state.AutoFish do
-            if not healthFrame.Visible then break end
-
-            -- Lấy giá trị máu hiện tại (Ví dụ: "2062500/2062500")
-            local currentHealthStr = healthUI.Text 
-            
-            if AutoDoSkill and not skillFound then
-                -- GIAI ĐOẠN DÒ: Thử Index hiện tại
-                local testRemote = allEvents[SKILL_IDX]
-                if testRemote then
-                    -- Thử dùng Skill 1 của cần đang trang bị
-                    for rodName, _ in pairs(state.RodSettings) do
-                        pcall(function()
-                            testRemote:FireServer(rodName, 1) 
-							gachaUI.Enabled = false
-							-- Tắt cả cái khung Background bên trong (nếu có)
-							if gachaUI:FindFirstChild("Background") then
-								gachaUI.Background.Visible = false
-							end
-                        end)
-                    end
-                end
-
-                -- Đợi một chút để game trừ máu và cập nhật UI
-                task.wait(1) 
-
-                -- SO SÁNH: Nếu máu hiện tại khác với lúc chưa gõ Remote
-                if healthUI.Text ~= currentHealthStr then
-                    skillFound = true
-                    print("🎯 Đã bắt được SKILL_IDX đúng: [" .. SKILL_IDX .. "]", "Green")
-					SKILL_IDX_SPAM= SKILL_IDX
-                else
-                    -- Nếu không đổi, lần sau thử Index tiếp theo
-                    SKILL_IDX = SKILL_IDX + 1
-                    if SKILL_IDX > 100 then SKILL_IDX = 1 end
-                    print("🔍 Skill không khớp, đang chuẩn bị thử Index: " .. SKILL_IDX)
-                end
-            else
-                -- GIAI ĐOẠN SPAM: Đã tìm thấy Index, giờ chỉ việc xả skill
-                local skillRemote = allEvents[SKILL_IDX_SPAM]
-                if skillRemote then
-                    for rodName, selectedSkills in pairs(state.RodSettings) do
-                        for _, skillText in ipairs(selectedSkills) do
-                            local skillID = tonumber(string.match(skillText, "%d+"))
-                            if skillID then
-                                pcall(function() 
-                                    skillRemote:FireServer(rodName, skillID) 
-                                end)
-                            end
-                        end
-                    end
-                end
-                task.wait(state.SpamDelay) -- Delay spam bình thường
-            end
-            
-            -- Nếu đang trong chế độ dò, ta đợi lâu hơn chút để tránh lướt qua index đúng
-            if not skillFound then
-                task.wait(0.1)
-            end
-        end
-        dangSpam = false
-    end)
-end
-
-
---================ EVENTS ================
 healthFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not state.AutoFish or isSelling then return end
 
     if healthFrame.Visible then
+       
         fishHooked = true
         if isTargetFish() then
             startSpamming()
         end
     else
         dangSpam = false
-        task.wait(state.WaitNext)
-        if state.AutoFish and not isSelling then
+		task.wait(state.WaitNext)
+        task.wait(0.5)
+        if globalTargetBoss and not isHuntingBoss then
+            print("⚡ CÂU XONG RỒI! Đi săn Boss tại: " .. globalTargetBoss)
+            
+            isHuntingBoss = true
+			
+            local targetPos = IslandPositions[globalTargetBoss]
+            local bossZoneFolder = workspace.BossZones:FindFirstChild(globalTargetBoss)
+            local spawnZone = bossZoneFolder and bossZoneFolder:FindFirstChild("BossSpawnZone")
+
+            if targetPos and spawnZone then
+                -- Teleport và xoay mặt
+                local lookAtTarget = Vector3.new(spawnZone.Position.X, targetPos.Y, spawnZone.Position.Z)
+                hrp.CFrame = CFrame.lookAt(targetPos.Position, lookAtTarget)
+                task.wait(0.5)
+                castRod() 
+            end
+
+        elseif isHuntingBoss and not globalTargetBoss then
+            isHuntingBoss = false
+            teleCastPost()
+            task.wait(0.5)
+            castRod()
+            
+        elseif isHuntingBoss and globalTargetBoss then
+
+			castRod() 
+		else
+			teleCastPost()
             castRod()
         end
-        task.wait(0.5)
-
     end
 end)
 
@@ -511,12 +666,14 @@ end)
 
 local function startAutoGacha()
     task.spawn(function()
-        local gachaRemote = eventsFolder:GetChildren()[3]
+		local gachaEvents = eventsFolder:GetChildren()
+		local gachaRemote = gachaEvents[GACHA_IDX]
         
         while state.AutoGacha do
 		 
-            gachaRemote:FireServer() 
-
+            pcall(function() 
+                gachaRemote:FireServer() 
+            end) 
 			gachaUI.Enabled = false
             -- Tắt cả cái khung Background bên trong (nếu có)
             if gachaUI:FindFirstChild("Background") then
@@ -549,6 +706,7 @@ Tab:Toggle({
 		isMoving = false
         if v then
 			isMoving = false
+			humanoid.Jump = false
             task.wait(1)
             castRod()
         else
@@ -583,81 +741,13 @@ Tab:Slider({
 })
 
 
-local chargeUI = player.PlayerGui:WaitForChild("Charge"):WaitForChild("Main")
-local scanning = false
-
 Tab:Toggle({
     Title = "🚀 Tự Động Dò Index (LuckBar Logic)",
     Default = false,
     Callback = function(v)
         scanning = v
         if v then
-            task.spawn(function()
-                local remotes = eventsFolder:GetChildren()
-                PRESS_IDX = nil
-                RELEASE_IDX = nil
-
-                -- GIAI ĐOẠN 1: Tìm PRESS (Làm thanh gồng nhảy Scale > 0)
-                print("🔍 Đang dò PRESS_IDX...", "Yellow")
-                for i = 1, #remotes do
-                    if not scanning then return end
-                    
-                    -- Đảm bảo thanh bar đang ở mức 0 trước khi thử
-                    if luckBar.Size.Y.Scale > 0 then
-                        -- Nếu đang gồng dở, cần reset hoặc đợi (thường là do trúng remote Release trước đó)
-                        task.wait(0.5) 
-                    end
-
-                    remotes[i]:FireServer()
-                    task.wait(0.5) -- Đợi server phản hồi Scale
-					gachaUI.Enabled = false
-					-- Tắt cả cái khung Background bên trong (nếu có)
-					if gachaUI:FindFirstChild("Background") then
-						gachaUI.Background.Visible = false
-					end
-
-                    if luckBar.Size.Y.Scale > 0 then
-                        PRESS_IDX = i
-                        print("✅ PRESS_IDX là: [" .. i .. "]", "Green")
-                        break
-                    end
-                end
-
-                -- GIAI ĐOẠN 2: Tìm RELEASE (Làm thanh gồng reset về 0)
-                if PRESS_IDX then
-                    print("🔍 Đang dò RELEASE_IDX (Reset từ 1)...", "Yellow")
-                    task.wait(1)
-                    
-                    for i = 1, #remotes do
-                        if not scanning then return end
-                        if i == PRESS_IDX then continue end -- Bỏ qua chính nó
-
-                        -- BƯỚC QUAN TRỌNG: Phải gồng lên trước rồi mới thử Release
-                        if luckBar.Size.Y.Scale == 0 then
-                            remotes[PRESS_IDX]:FireServer()
-                            task.wait(0.4)
-                        end
-
-                        -- Thử Remote hiện tại để xem nó có làm Scale về 0 không
-                        remotes[i]:FireServer()
-                        task.wait(0.4)
-
-                        if luckBar.Size.Y.Scale == 0 then
-                            RELEASE_IDX = i
-                            print("✅ RELEASE_IDX là: [" .. i .. "]", "Green")
-                            scanning = false
-                            break
-                        end
-                    end
-                end
-
-                if not PRESS_IDX or not RELEASE_IDX then
-                    print("❌ Thất bại! Hãy thử đứng gần nước hơn.", "Red")
-                end
-                scanning = false
-            end)
-        else
-            scanning = false
+            startScanningIndex() -- Gọi function đã tách
         end
     end
 })
@@ -704,15 +794,22 @@ Tab:Slider({
     end
 })
 Tab:Button({
-    Title = "⏭️ Bỏ qua Index hiện tại (Dò Tiếp)",
+	Title = "⏭️ Bỏ qua Index hiện tại (Dò Tiếp)",
+	Callback = function()
+		skillFound = false        -- Đưa trạng thái về chưa tìm thấy
+		AutoDoSkill = true        -- Ép bật chế độ dò
+		SKILL_IDX = SKILL_IDX + 1 -- Nhảy sang số tiếp theo ngay lập tức
+			
+		if SKILL_IDX > 100 then SKILL_IDX = 1 end
+			
+		print("⚠️ Đã bỏ qua Index cũ. Đang dò tiếp từ: " .. SKILL_IDX, "Yellow")
+	end
+})
+Tab:Button({
+    Title = "📍 Lưu Vị Trí Câu Cá Hiện Tại",
     Callback = function()
-        skillFound = false        -- Đưa trạng thái về chưa tìm thấy
-        AutoDoSkill = true        -- Ép bật chế độ dò
-        SKILL_IDX = SKILL_IDX + 1 -- Nhảy sang số tiếp theo ngay lập tức
-        
-        if SKILL_IDX > 100 then SKILL_IDX = 1 end
-        
-        print("⚠️ Đã bỏ qua Index cũ. Đang dò tiếp từ: " .. SKILL_IDX, "Yellow")
+        savedCastPos = hrp.CFrame
+		print(savedCastPos)
     end
 })
 
@@ -773,5 +870,13 @@ GachaTab:Slider({
     Value = state.GachaDelay,
     Callback = function(v)
         state.GachaDelay = v
+    end
+})
+GachaTab:Slider({
+    Title = "Gacha Index ",
+    Min = 1, Max = 100,
+    Value = GACHA_IDX,
+    Callback = function(v)
+        GACHA_IDX = v
     end
 })
