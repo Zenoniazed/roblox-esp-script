@@ -276,7 +276,7 @@ local function teleCastPost()
         
         if distance > 3 then
             -- Thiết lập thông số Tween (Thời gian di chuyển dựa trên khoảng cách)
-            local speed = 90 -- Tốc độ (studs/s), số càng lớn di chuyển càng nhanh
+            local speed = 60 -- Tốc độ (studs/s), số càng lớn di chuyển càng nhanh
             local duration = distance / speed 
             
             local tweenInfo = TweenInfo.new(
@@ -341,7 +341,7 @@ local function sellAndReturn()
         local distance = (hrp.Position - targetPos).Magnitude
         
         -- Cấu hình Tween (Tốc độ khoảng 50-70 là vừa đẹp)
-        local tweenInfo = TweenInfo.new(distance / 90, Enum.EasingStyle.Linear)
+        local tweenInfo = TweenInfo.new(distance / 60, Enum.EasingStyle.Linear)
         local tweenToNPC = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
         
         -- Bắt đầu di chuyển đến NPC
