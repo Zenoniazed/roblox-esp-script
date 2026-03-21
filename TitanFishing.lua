@@ -77,7 +77,7 @@ local state = {
 
 local IslandPositions = {
     ["Island 1"] = CFrame.new(271, 22, 53),
-    ["Island 2"] = CFrame.new(1765, 19, -378),
+    ["Island 2"] = CFrame.new(1749, 19, -383),
     ["Island 3"] = CFrame.new(897, 20, 1241),
     ["Island 4"] = CFrame.new(791, 21, -985),
     ["Island 5"] = CFrame.new(-423, 22, 961)
