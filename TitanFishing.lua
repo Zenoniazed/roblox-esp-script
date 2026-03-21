@@ -189,6 +189,35 @@ local function clickGui(guiObject)
     end
 end
 
+local function forceClick(button)
+    if not button then return end
+    
+    -- 1. Thử dùng Activate theo cách an toàn
+    pcall(function()
+        if button:IsA("GuiButton") then
+            button:Activate()
+        end
+    end)
+    
+    -- 2. Dùng firesignal (Cực kỳ hiệu quả trên Mobile Executor)
+    if firesignal then
+        pcall(function() firesignal(button.MouseButton1Click) end)
+        pcall(function() firesignal(button.Activated) end)
+        pcall(function() firesignal(button.TouchTap) end)
+    end
+
+    -- 3. Dùng getconnections (Dành cho trường hợp nút bị ẩn/lệch tọa độ)
+    if getconnections then
+        local signals = {"MouseButton1Click", "Activated", "TouchTap"}
+        for _, signalName in pairs(signals) do
+            pcall(function()
+                for _, connection in pairs(getconnections(button[signalName])) do
+                    connection:Fire()
+                end
+            end)
+        end
+    end
+end
 --================ DI CHUYỂN THÔNG MINH ================
 local function smartMoveTo(targetPos)
     local path = PathfindingService:CreatePath({AgentRadius = 2, AgentHeight = 5, AgentCanJump = true})
@@ -331,8 +360,10 @@ local function sellAndReturn()
             prompt:InputHoldEnd()
         end
 		task.wait(1.5)
+		forceClick(buttonAll)
 		clickGui(buttonAll)
 		task.wait(1.5)
+		forceClick(buttonAll)
 		clickGui(buttonClose)
 		task.wait(0.5)
 
