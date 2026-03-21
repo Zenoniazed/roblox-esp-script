@@ -330,9 +330,9 @@ local function sellAndReturn()
             task.wait(prompt.HoldDuration + 0.1)
             prompt:InputHoldEnd()
         end
-		task.wait(0.3)
+		task.wait(1.5)
 		clickGui(buttonAll)
-		task.wait(0.3)
+		task.wait(1.5)
 		clickGui(buttonClose)
 		task.wait(0.5)
 
