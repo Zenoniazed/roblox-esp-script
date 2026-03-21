@@ -313,11 +313,15 @@ local function sellAndReturn()
     if isSelling or not state.AutoFish then return end
     isSelling = true
     dangSpam = false
-    local oldPos = hrp.Position
+    local oldCFrame = hrp.CFrame
     local npc = getNearestFishSeller()
     
     if npc then
-        smartMoveTo(npc.Position + Vector3.new(3, 0, 3))
+	
+		
+        -- smartMoveTo(npc.Position + Vector3.new(3, 0, 3))
+		hrp.CFrame = CFrame.new(npc.Position + Vector3.new(3, 0, 3), npc.Position)
+		-- hrp.CFrame = CFrame.new(targetPos, targetPos + savedCastPos.LookVector)
         task.wait(2) -- Đợi bán
 		local prompt = npc:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt then
@@ -332,7 +336,7 @@ local function sellAndReturn()
 		clickGui(buttonClose)
 		task.wait(0.5)
 
-        smartMoveTo(oldPos)
+        hrp.CFrame = oldCFrame
         
     end
     
@@ -618,7 +622,7 @@ healthFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 -- Teleport và xoay mặt
                 local lookAtTarget = Vector3.new(spawnZone.Position.X, targetPos.Y, spawnZone.Position.Z)
                 hrp.CFrame = CFrame.lookAt(targetPos.Position, lookAtTarget)
-                task.wait(0.5)
+                task.wait(0.2)
                 castRod() 
             end
 
@@ -629,7 +633,6 @@ healthFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             castRod()
             
         elseif isHuntingBoss and globalTargetBoss then
-
 			castRod() 
 		else
 			teleCastPost()
@@ -706,15 +709,13 @@ Tab:Toggle({
 		isMoving = false
         if v then
 			isMoving = false
-			humanoid.Jump = false
             task.wait(1)
             castRod()
         else
             dangSpam = false
             isMoving = false    -- Đã sửa thành biến cục bộ
             isSelling = false   -- Reset luôn trạng thái bán cá (nếu đang dở)
-            savedCastPos = nil
-			humanoid.Jump = false
+            
         end
     end
 })
@@ -809,7 +810,13 @@ Tab:Button({
     Title = "📍 Lưu Vị Trí Câu Cá Hiện Tại",
     Callback = function()
         savedCastPos = hrp.CFrame
-		print(savedCastPos)
+    end
+})
+
+Tab:Button({
+    Title = "📍 Quay Lại Lưu Vị Trí Câu",
+    Callback = function()
+        teleCastPost()
     end
 })
 
