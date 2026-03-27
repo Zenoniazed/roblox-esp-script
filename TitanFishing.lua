@@ -233,7 +233,7 @@ local PRESS_IDX = 9
 local RELEASE_IDX = 22
 local GACHA_IDX = 3
 
---================ HÀM TRANG BỊ (TÌM VÀ CẦM) ================
+-- ========== HÀM TRANG BỊ (TÌM VÀ CẦM) ================
 --================ VỆ SĨ TRANG BỊ (CHẠY RIÊNG BIỆT) ================
 local function forceEquipRod()
     local char = player.Character
@@ -271,36 +271,19 @@ task.spawn(function()
 end)
 
 local function teleCastPost()
-    if savedCastPos then
-        local distance = (hrp.Position - savedCastPos.Position).Magnitude
-        
-        if distance > 3 then
-            -- Thiết lập thông số Tween (Thời gian di chuyển dựa trên khoảng cách)
-            local speed = 60 -- Tốc độ (studs/s), số càng lớn di chuyển càng nhanh
-            local duration = distance / speed 
-            
-            local tweenInfo = TweenInfo.new(
-                duration, 
-                Enum.EasingStyle.Linear, -- Di chuyển đều
-                Enum.EasingDirection.Out
-            )
-            
-            -- Mục tiêu di chuyển (Vị trí và hướng nhìn)
-            local targetCFrame = CFrame.new(savedCastPos.Position, savedCastPos.Position + savedCastPos.LookVector)
-            
-            local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
-            
-            isMoving = true -- Đang bắt đầu di chuyển
-            tween:Play()
-            
-            -- Đợi cho đến khi Tween chạy xong
-            tween.Completed:Wait()
-        end
-        
-        isMoving = false 
-    elseif not savedCastPos then
-        savedCastPos = hrp.CFrame
-    end
+	if savedCastPos then
+		local distance = (hrp.Position - savedCastPos.Position).Magnitude
+		if distance > 3 then
+		local targetPos = savedCastPos.Position 
+			
+			hrp.CFrame = CFrame.new(targetPos, targetPos + savedCastPos.LookVector)
+
+			task.wait(0.2)
+		end
+		isMoving = false 
+		elseif not savedCastPos then
+			savedCastPos = hrp.CFrame
+		end
 end
 --================ HÀM QUĂNG CẦN CHUẨN ================
 local function castRod()
@@ -330,51 +313,36 @@ local function sellAndReturn()
     if isSelling or not state.AutoFish then return end
     isSelling = true
     dangSpam = false
-    
     local oldCFrame = hrp.CFrame
     local npc = getNearestFishSeller()
     
     if npc then
-        -- 1. Tính toán Tween đến NPC
-        local targetPos = npc.Position + Vector3.new(3, 0, 3)
-        local targetCFrame = CFrame.new(targetPos, npc.Position)
-        local distance = (hrp.Position - targetPos).Magnitude
-        
-        -- Cấu hình Tween (Tốc độ khoảng 50-70 là vừa đẹp)
-        local tweenInfo = TweenInfo.new(distance / 60, Enum.EasingStyle.Linear)
-        local tweenToNPC = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
-        
-        -- Bắt đầu di chuyển đến NPC
-        tweenToNPC:Play()
-        tweenToNPC.Completed:Wait() -- Đợi đến nơi mới làm tiếp
-        
-        task.wait(0.5) -- Nghỉ một chút trước khi tương tác
-        
-        -- 2. Tương tác ProximityPrompt (Giữ nguyên logic của bạn)
-        local prompt = npc:FindFirstChildWhichIsA("ProximityPrompt", true)
+	
+		
+        -- smartMoveTo(npc.Position + Vector3.new(3, 0, 3))
+		hrp.CFrame = CFrame.new(npc.Position + Vector3.new(3, 0, 3), npc.Position)
+		-- hrp.CFrame = CFrame.new(targetPos, targetPos + savedCastPos.LookVector)
+        task.wait(2) -- Đợi bán
+		local prompt = npc:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt then
+            -- Kích hoạt nhấn E
             prompt:InputHoldBegin()
             task.wait(prompt.HoldDuration + 0.1)
             prompt:InputHoldEnd()
         end
-        
-        task.wait(1.5) -- Đợi GUI hiện
+		task.wait(2.3)
 		clickGui(buttonAll)
-        task.wait(1) 
+		task.wait(2.3)
 		clickGui(buttonClose)
-        task.wait(1)
+		task.wait(2.5)
 
-
-        local returnDistance = (hrp.Position - oldCFrame.Position).Magnitude
-        local returnTweenInfo = TweenInfo.new(returnDistance / 90, Enum.EasingStyle.Linear)
-        local tweenBack = TweenService:Create(hrp, returnTweenInfo, {CFrame = oldCFrame})
+        hrp.CFrame = oldCFrame
         
-        tweenBack:Play()
-        tweenBack.Completed:Wait() -- Đợi về chỗ cũ xong mới câu tiếp
     end
     
     isSelling = false
-    task.wait(0.5)
+    task.wait(1)
+
     castRod()
 end
 
@@ -398,6 +366,22 @@ local AutoDoSkill = false
 local healthUI = player.PlayerGui:WaitForChild("FishStats"):WaitForChild("HealthFrame"):WaitForChild("HealthText")
 local SKILL_IDX_SPAM = 4
 
+function breakVelocity()
+    local char = Players.LocalPlayer.Character
+    if not char then return end
+
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            -- API mới (QUAN TRỌNG)
+            v.AssemblyLinearVelocity = Vector3.zero
+            v.AssemblyAngularVelocity = Vector3.zero
+            
+            -- Backup API cũ (giữ lại cho chắc)
+            v.Velocity = Vector3.zero
+            v.RotVelocity = Vector3.zero
+        end
+    end
+end
 
 local function startScanningIndex()
     if not scanning then return end
