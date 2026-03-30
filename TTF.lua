@@ -560,7 +560,6 @@ local function startSpamming()
 
                 if hasDetected then
                     skillFound = true
-                    SKILL_IDX_SPAM = SKILL_IDX
                     print("🎯 Đã tìm thấy Remote! Index: [" .. SKILL_IDX .. "]")
                 else
                     SKILL_IDX = SKILL_IDX + 1
