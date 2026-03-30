@@ -559,7 +559,7 @@ local function startSpamming()
                     print("🎯 Đã tìm thấy Remote! Index: [" .. SKILL_IDX .. "]")
                 else
                     SKILL_IDX = SKILL_IDX + 1
-                    if SKILL_IDX > #allEvents then SKILL_IDX = 1 end
+                    if SKILL_IDX > 200 then SKILL_IDX = 1 end
 						print("🔍 Index " .. SKILL_IDX .. " không phản hồi, đang dò tiếp...")
                 end
             else
@@ -631,7 +631,7 @@ local function startScanningSubmit()
         local allEvents = eventsFolder:GetChildren()
         print("🔍 Đang bắt đầu dò tìm chính xác...", "Yellow")
         
-        for i = SUBMIT_IDX, #allEvents do
+        for i = SUBMIT_IDX, 200 do
             if not state.AutoScanSubmit then break end
             
             SUBMIT_IDX = i
