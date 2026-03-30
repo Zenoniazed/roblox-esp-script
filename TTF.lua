@@ -504,25 +504,21 @@ local function startSpamming()
                 -- Ghi lại máu trước khi thử (Dùng cho mode HP)
                 local currentHealthStr = healthUI.Text 
 
-                -- GIAI ĐOẠN DÒ: Giữ nguyên đoạn bạn yêu cầu
+                 -- GIAI ĐOẠN DÒ: Giữ nguyên đoạn bạn yêu cầu
                 local testRemote = allEvents[SKILL_IDX]
-				if testRemote then
-					-- 2. CHỈ LẤY 1 TÊN CẦN CÂU ĐỂ THỬ (Tránh spam 18 lần cho 1 Index)
-					local firstRodName = next(state.RodSettings) 
-					
-					if firstRodName then
-						pcall(function()
-							-- CHỈ GỌI 1 LẦN DUY NHẤT Ở ĐÂY
-							testRemote:FireServer("Wooden Rod", 1) 
-							task.wait(0.05)
-							-- Giữ nguyên logic ẩn UI Gacha
-							gachaUI.Enabled = false
-							if gachaUI:FindFirstChild("Background") then
-								gachaUI.Background.Visible = false
-							end
-						end)
-					end
-				end
+                if testRemote then
+                    for rodName, _ in pairs(state.RodSettings) do
+                        pcall(function()
+                            testRemote:FireServer(rodName, 1) 
+                            
+                            -- Xử lý UI Gacha (Giữ nguyên)
+                            gachaUI.Enabled = false
+                            if gachaUI:FindFirstChild("Background") then
+                                gachaUI.Background.Visible = false
+                            end
+                        end)
+                    end
+                end
                 -- if testRemote then
                 --     for rodName, _ in pairs(state.RodSettings) do
                 --         pcall(function()
