@@ -560,6 +560,7 @@ local function startSpamming()
                 else
                     SKILL_IDX = SKILL_IDX + 1
                     if SKILL_IDX > #allEvents then SKILL_IDX = 1 end
+						print("🔍 Index " .. SKILL_IDX .. " không phản hồi, đang dò tiếp...")
                 end
             else
                 -- GIAI ĐOẠN SPAM: Đã tìm thấy Remote
