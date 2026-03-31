@@ -219,7 +219,7 @@ end
 
 --================ TÌM NPC BÁN CÁ ================
 local function getNearestFishSeller()
-    local npcFolder = workspace:FindFirstChild("NPCs")
+    local npcFolder = workspace.Map:FindFirstChild("NPCs")
     if not npcFolder then return nil end
     local nearest, shortest = nil, math.huge
     for _, npc in pairs(npcFolder:GetChildren()) do
