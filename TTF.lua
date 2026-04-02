@@ -7,6 +7,7 @@ local VirtualUser = game:GetService("VirtualUser")
 local PathfindingService = game:GetService("PathfindingService")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -137,6 +138,18 @@ local fishHooked = false
 local lastCastTime = 0
 local scanning = false
 local globalTargetBoss = nil
+local noclipActive = false
+
+--================ LOGICNOCLIP ================
+RunService.Stepped:Connect(function()
+    if noclipActive and character then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
 
 --================ LOGIC NHẢY (JUMP LOGIC) ================
 task.spawn(function()
@@ -240,10 +253,10 @@ end
 local savedCastPos = nil
 
 
-local PRESS_IDX = 9   
-local RELEASE_IDX = 22
-local GACHA_IDX = 3
-local SUBMIT_IDX = 1
+local PRESS_IDX = 20   
+local RELEASE_IDX = 33
+local GACHA_IDX = 4
+local SUBMIT_IDX = 9
 
 -- ========== HÀM TRANG BỊ (TÌM VÀ CẦM) ================
 --================ VỆ SĨ TRANG BỊ (CHẠY RIÊNG BIỆT) ================
@@ -283,19 +296,38 @@ task.spawn(function()
 end)
 
 local function teleCastPost()
-	if savedCastPos then
-		local distance = (hrp.Position - savedCastPos.Position).Magnitude
-		if distance > 3 then
-		local targetPos = savedCastPos.Position 
-			
-			hrp.CFrame = CFrame.new(targetPos, targetPos + savedCastPos.LookVector)
-
-			task.wait(0.2)
-		end
-		isMoving = false 
-		elseif not savedCastPos then
-			savedCastPos = hrp.CFrame
-		end
+    if savedCastPos then
+        local distance = (hrp.Position - savedCastPos.Position).Magnitude
+        
+        if distance > 3 then
+            -- Thiết lập thông số Tween (Thời gian di chuyển dựa trên khoảng cách)
+            local speed = 100 -- Tốc độ (studs/s), số càng lớn di chuyển càng nhanh
+            local duration = distance / speed 
+            
+            local tweenInfo = TweenInfo.new(
+                duration, 
+                Enum.EasingStyle.Linear, -- Di chuyển đều
+                Enum.EasingDirection.Out
+            )
+            
+            -- Mục tiêu di chuyển (Vị trí và hướng nhìn)
+            local targetCFrame = CFrame.new(savedCastPos.Position, savedCastPos.Position + savedCastPos.LookVector)
+            
+            local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+            
+            isMoving = true -- Đang bắt đầu di chuyển
+			noclipActive = true
+            tween:Play()
+            
+            -- Đợi cho đến khi Tween chạy xong
+            tween.Completed:Wait()
+			noclipActive = false
+        end
+        
+        isMoving = false 
+    elseif not savedCastPos then
+        savedCastPos = hrp.CFrame
+    end
 end
 --================ HÀM QUĂNG CẦN CHUẨN ================
 local function castRod()
@@ -321,40 +353,60 @@ local function castRod()
     end
 end
 --================ ĐI BÁN VÀ QUAY LẠI ================
+
 local function sellAndReturn()
     if isSelling or not state.AutoFish then return end
     isSelling = true
     dangSpam = false
+    
     local oldCFrame = hrp.CFrame
     local npc = getNearestFishSeller()
     
     if npc then
-	
-		
-        -- smartMoveTo(npc.Position + Vector3.new(3, 0, 3))
-		hrp.CFrame = CFrame.new(npc.Position + Vector3.new(3, 0, 3), npc.Position)
-		-- hrp.CFrame = CFrame.new(targetPos, targetPos + savedCastPos.LookVector)
-        task.wait(2) -- Đợi bán
-		local prompt = npc:FindFirstChildWhichIsA("ProximityPrompt", true)
+        -- 1. Tính toán Tween đến NPC
+        local targetPos = npc.Position + Vector3.new(3, 0, 3)
+        local targetCFrame = CFrame.new(targetPos, npc.Position)
+        local distance = (hrp.Position - targetPos).Magnitude
+        
+        -- Cấu hình Tween (Tốc độ khoảng 50-70 là vừa đẹp)
+        local tweenInfo = TweenInfo.new(distance / 100, Enum.EasingStyle.Linear)
+        local tweenToNPC = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+        
+        -- Bắt đầu di chuyển đến NPC
+		noclipActive = true
+        tweenToNPC:Play()
+        tweenToNPC.Completed:Wait() -- Đợi đến nơi mới làm tiếp
+		noclipActive = false
+        
+        task.wait(0.5) -- Nghỉ một chút trước khi tương tác
+        
+        -- 2. Tương tác ProximityPrompt (Giữ nguyên logic của bạn)
+        local prompt = npc:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt then
-            -- Kích hoạt nhấn E
             prompt:InputHoldBegin()
             task.wait(prompt.HoldDuration + 0.1)
             prompt:InputHoldEnd()
         end
-		task.wait(1)
-		clickGui(buttonAll)
-		task.wait(1)
-		clickGui(buttonClose)
-		task.wait(1)
-
-        hrp.CFrame = oldCFrame
         
+        -- 3. Xử lý GUI (Dùng forceClick bạn đã sửa)
+        task.wait(1) -- Đợi GUI hiện
+        clickGui(buttonAll)
+        task.wait(1) 
+        clickGui(buttonClose)
+        task.wait(1)
+
+        -- 4. Tween quay trở lại vị trí cũ
+        local returnDistance = (hrp.Position - oldCFrame.Position).Magnitude
+        local returnTweenInfo = TweenInfo.new(returnDistance / 100, Enum.EasingStyle.Linear)
+        local tweenBack = TweenService:Create(hrp, returnTweenInfo, {CFrame = oldCFrame})
+        noclipActive = false
+        tweenBack:Play()
+        tweenBack.Completed:Wait() -- Đợi về chỗ cũ xong mới câu tiếp
+		noclipActive = false
     end
     
     isSelling = false
-    task.wait(1)
-
+    task.wait(0.5)
     castRod()
 end
 
@@ -372,11 +424,11 @@ end
 
 
 
-local SKILL_IDX = 4 
+local SKILL_IDX = 1 
 local skillFound = false
 local AutoDoSkill = false
 local healthUI = player.PlayerGui:WaitForChild("FishStats"):WaitForChild("HealthFrame"):WaitForChild("HealthText")
-local SKILL_IDX_SPAM = 4
+local SKILL_IDX_SPAM = 12
 
 function breakVelocity()
     local char = Players.LocalPlayer.Character
@@ -504,7 +556,7 @@ local function startSpamming()
                 -- Ghi lại máu trước khi thử (Dùng cho mode HP)
                 local currentHealthStr = healthUI.Text 
 
-                 -- GIAI ĐOẠN DÒ: Giữ nguyên đoạn bạn yêu cầu
+                -- GIAI ĐOẠN DÒ: Giữ nguyên đoạn bạn yêu cầu
                 local testRemote = allEvents[SKILL_IDX]
                 if testRemote then
                     for rodName, _ in pairs(state.RodSettings) do
@@ -519,18 +571,6 @@ local function startSpamming()
                         end)
                     end
                 end
-                -- if testRemote then
-                --     for rodName, _ in pairs(state.RodSettings) do
-                --         pcall(function()
-                --             testRemote:FireServer(rodName, 1) 
-                --             -- Xử lý UI Gacha (Giữ nguyên)
-                --             gachaUI.Enabled = false
-                --             if gachaUI:FindFirstChild("Background") then
-                --                 gachaUI.Background.Visible = false
-                --             end
-                --         end)
-                --     end
-                -- end
 
                 -- Đợi tùy theo mode (HP cần đợi lâu hơn để server trừ máu)
                 task.wait(state.ScanMethod == "HP" and 0.4 or 0.12) 
@@ -556,11 +596,12 @@ local function startSpamming()
 
                 if hasDetected then
                     skillFound = true
+                    SKILL_IDX_SPAM = SKILL_IDX
                     print("🎯 Đã tìm thấy Remote! Index: [" .. SKILL_IDX .. "]")
                 else
                     SKILL_IDX = SKILL_IDX + 1
-                    if SKILL_IDX > 200 then SKILL_IDX = 1 end
-						print("🔍 Index " .. SKILL_IDX .. " không phản hồi, đang dò tiếp...")
+                    if SKILL_IDX > #allEvents then SKILL_IDX = 1 end
+					 print("🔍 Index " .. SKILL_IDX .. " không phản hồi, đang dò tiếp...")
                 end
             else
                 -- GIAI ĐOẠN SPAM: Đã tìm thấy Remote
@@ -631,7 +672,7 @@ local function startScanningSubmit()
         local allEvents = eventsFolder:GetChildren()
         print("🔍 Đang bắt đầu dò tìm chính xác...", "Yellow")
         
-        for i = SUBMIT_IDX, 200 do
+        for i = SUBMIT_IDX, #allEvents do
             if not state.AutoScanSubmit then break end
             
             SUBMIT_IDX = i
@@ -703,13 +744,44 @@ healthFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             local bossZoneFolder = workspace.BossZones:FindFirstChild(globalTargetBoss)
             local spawnZone = bossZoneFolder and bossZoneFolder:FindFirstChild("BossSpawnZone")
 
-            if targetPos and spawnZone then
-                -- Teleport và xoay mặt
-                local lookAtTarget = Vector3.new(spawnZone.Position.X, targetPos.Y, spawnZone.Position.Z)
-                hrp.CFrame = CFrame.lookAt(targetPos.Position, lookAtTarget)
-                task.wait(0.2)
-                castRod() 
-            end
+            -- if targetPos and spawnZone then
+            --     -- Teleport và xoay mặt
+            --     local lookAtTarget = Vector3.new(spawnZone.Position.X, targetPos.Y, spawnZone.Position.Z)
+            --     hrp.CFrame = CFrame.lookAt(targetPos.Position, lookAtTarget)
+            --     task.wait(0.2)
+            --     castRod() 
+            -- end
+			if targetPos and spawnZone then
+				-- 1. Thiết lập tọa độ
+				local upPosition = hrp.Position + Vector3.new(0, 50, 0) -- Vị trí trên cao 50 studs
+				local bossPosition = targetPos.Position + Vector3.new(0, 50, 0) -- Vị trí trên cao tại Boss
+				
+				local lookAtTarget = Vector3.new(spawnZone.Position.X, targetPos.Y, spawnZone.Position.Z)
+				local targetCFrame = CFrame.lookAt(targetPos.Position, lookAtTarget)
+				
+				-- 2. TWEEN 1: Bay thẳng lên trời
+				local tweenUpInfo = TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+				local tweenUp = TweenService:Create(hrp, tweenUpInfo, {CFrame = CFrame.new(upPosition) * hrp.CFrame.Rotation})
+				
+				noclipActive = true -- Bật noclip để không kẹt trần nhà/núi
+				tweenUp:Play()
+				tweenUp.Completed:Wait()
+				
+				-- 3. TWEEN 2: Di chuyển ngang trên cao đến vị trí Boss
+				local distance = (hrp.Position - targetPos.Position).Magnitude
+				local tweenMoveInfo = TweenInfo.new(distance / 100, Enum.EasingStyle.Linear)
+				
+				-- Chúng ta sẽ bay đến tọa độ Boss nhưng vẫn giữ độ cao +50 trước khi đáp xuống
+				local tweenToBoss = TweenService:Create(hrp, tweenMoveInfo, {CFrame = targetCFrame})
+				
+				tweenToBoss:Play()
+				tweenToBoss.Completed:Wait() 
+
+				-- 4. Kết thúc
+				noclipActive = false -- Tắt noclip khi đã đến nơi
+				task.wait(0.2)
+				castRod() 
+			end
 
         elseif isHuntingBoss and not globalTargetBoss then
             isHuntingBoss = false
@@ -848,7 +920,7 @@ Tab:Dropdown({
 
 Tab:Slider({
     Title = "Spam Delay (ms)",
-    Min = 20, Max = 300,
+    Min = 5, Max = 500,
     Value = state.SpamDelay * 1000,
     Callback = function(v) 
         state.SpamDelay = v / 1000 
@@ -1043,7 +1115,7 @@ GachaTab:Toggle({
 
 GachaTab:Slider({
     Title = "Submit Delay (s)",
-    Min = 0.1, Max = 100, -- Cho phép chỉnh nhanh hơn (0.1s)
+    Min = 1, Max = 1000, -- Cho phép chỉnh nhanh hơn (0.1s)
     Value = state.SubmitDelay,
     Callback = function(v)
         state.SubmitDelay = v
@@ -1057,5 +1129,6 @@ GachaTab:Slider({
     Value = SUBMIT_IDX,
     Callback = function(v)
         SUBMIT_IDX = v
+		save()
     end
 })
