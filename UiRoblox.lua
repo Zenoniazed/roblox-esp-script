@@ -4808,7 +4808,7 @@ function Library:Window(p)
             Title_1.ClipsDescendants = true
             -- Kiểm tra nếu Icon truyền vào là số thì dùng gl(), nếu là string thì giữ nguyên
             Title_1.Image = (type(CloseUI.Icon) == "number" and gl(CloseUI.Icon).Image or CloseUI.Icon)
-            Title_1.ScaleType = Enum.ScaleType.Fit
+          --  Title_1.ScaleType = Enum.ScaleType.Fit
 
             addToTheme('Text & Icon', Title_1)
 
@@ -4816,9 +4816,9 @@ function Library:Window(p)
             lak(Click, CloseUIShadow)
             Click.MouseButton1Click:Connect(function()
                 -- Hiệu ứng nhấn Icon co giãn
-                tw({v = Title_1, t = 0.1, s = Enum.EasingStyle.Quad, d = "Out", g = {Size = UDim2.new(0, 18, 0, 18)}}):Play()
+                tw({v = Title_1, t = 0.1, s = Enum.EasingStyle.Quad, d = "Out", g = {Size = UDim2.new(0, 40, 0, 40)}}):Play()
                 delay(0.1, function()
-                    tw({v = Title_1, t = 0.1, s = Enum.EasingStyle.Quad, d = "Out", g = {Size = UDim2.new(0, 22, 0, 22)}}):Play()
+                    tw({v = Title_1, t = 0.1, s = Enum.EasingStyle.Quad, d = "Out", g = {Size = UDim2.new(0, 45, 0, 45)}}):Play()
                 end)
                 pcall(closeui)
             end)
