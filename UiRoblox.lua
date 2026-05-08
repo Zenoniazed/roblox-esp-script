@@ -1263,6 +1263,14 @@ function Library:Window(p)
 	Icon_1.Image = gl(Icon).Image
 	Icon_1.ImageRectSize = gl(Icon).ImageRectSize
 	Icon_1.ImageRectOffset = gl(Icon).ImageRectPosition
+	-- === ĐOẠN CODE BO TRÒN THÊM VÀO ĐÂY ===
+    local Icon_1_Corner = Instance.new("UICorner")
+    Icon_1_Corner.Name = "IconCorner"
+    Icon_1_Corner.CornerRadius = UDim.new(0, 5) 
+    Icon_1_Corner.Parent = Icon_1
+
+    -- Quan trọng: Bật cái này để ảnh bị cắt theo các góc đã bo
+    Icon_1.ClipsDescendants = true
 
 	addToTheme('Text & Icon', Icon_1)
 
