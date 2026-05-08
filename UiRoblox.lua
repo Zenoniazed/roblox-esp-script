@@ -4776,7 +4776,7 @@ function Library:Window(p)
             FrameCloseUI_1.Parent = BackgroundCloseUI_1
             FrameCloseUI_1.AnchorPoint = Vector2.new(0, 1)
             FrameCloseUI_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
-            FrameCloseUI_1.BackgroundTransparency = 0.9
+            FrameCloseUI_1.BackgroundTransparency = 1 --ẩn _trắng
             FrameCloseUI_1.BorderSizePixel = 0
             FrameCloseUI_1.Position = UDim2.new(0, 0, 1, 0)
             FrameCloseUI_1.Size = UDim2.new(1, 0, 0, 3)
