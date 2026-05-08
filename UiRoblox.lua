@@ -4740,7 +4740,7 @@ function Library:Window(p)
             CloseUIShadow.BackgroundColor3 = Color3.fromRGB(163,162,165)
             CloseUIShadow.BackgroundTransparency = 1
             CloseUIShadow.Position = UDim2.new(0, 20, 0.2, 0) -- Vị trí nút
-            CloseUIShadow.Size = UDim2.new(0, 45, 0, 45) -- Kích thước nút vuông
+            CloseUIShadow.Size = UDim2.new(0, 50, 0, 50) -- Kích thước nút vuông
             CloseUIShadow.Image = "rbxassetid://1316045217"
             CloseUIShadow.ImageColor3 = Color3.fromRGB(24,24,31)
             CloseUIShadow.ImageTransparency = 0.5
@@ -4786,10 +4786,10 @@ function Library:Window(p)
             Title_1.Parent = BackgroundCloseUI_1
             Title_1.AnchorPoint = Vector2.new(0.5, 0.5)
             Title_1.Position = UDim2.new(0.5, 0, 0.5, 0)
-            Title_1.Size = UDim2.new(0, 22, 0, 22) -- Kích thước Icon bên trong nút
+            Title_1.Size = UDim2.new(0, 45, 0, 45) -- Kích thước Icon bên trong nút
             Title_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
             Title_1.BackgroundTransparency = 1
-            Title_1.BorderSizePixel = 0
+            Title_1.BorderSizePixel = 2
             -- Kiểm tra nếu Icon truyền vào là số thì dùng gl(), nếu là string thì giữ nguyên
             Title_1.Image = (type(CloseUI.Icon) == "number" and gl(CloseUI.Icon).Image or CloseUI.Icon)
             Title_1.ScaleType = Enum.ScaleType.Fit
