@@ -4786,10 +4786,26 @@ function Library:Window(p)
             Title_1.Parent = BackgroundCloseUI_1
             Title_1.AnchorPoint = Vector2.new(0.5, 0.5)
             Title_1.Position = UDim2.new(0.5, 0, 0.5, 0)
-            Title_1.Size = UDim2.new(0, 45, 0, 45) -- Kích thước Icon bên trong nút
+            Title_1.Size = UDim2.new(0, 40, 0, 40) 
             Title_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
-            Title_1.BackgroundTransparency = 1
-            Title_1.BorderSizePixel = 2
+            Title_1.BackgroundTransparency = 1 -- Để 1 nếu ảnh của bạn đã có nền, để 0 nếu muốn hiện màu nền BackgroundColor3
+            Title_1.BorderSizePixel = 0 -- Luôn để 0 khi dùng UICorner
+
+            -- THÊM BO GÓC TẠI ĐÂY
+            local IconCorner = Instance.new("UICorner")
+            IconCorner.CornerRadius = UDim.new(0, 5) -- Chỉnh số 8 để bo ít, hoặc UDim.new(1, 0) để bo tròn xoe
+            IconCorner.Parent = Title_1
+
+            -- THÊM VIỀN TẠI ĐÂY (Thay thế cho BorderSizePixel)
+            local IconStroke = Instance.new("UIStroke")
+            IconStroke.Parent = Title_1
+            IconStroke.Color = Color3.fromRGB(255, 255, 255) -- Màu viền
+            IconStroke.Thickness = 1.5 -- Độ dày viền
+            IconStroke.Transparency = 0.8 -- Độ mờ của viền
+            IconStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+            -- Đảm bảo ảnh bị cắt theo góc bo
+            Title_1.ClipsDescendants = true
             -- Kiểm tra nếu Icon truyền vào là số thì dùng gl(), nếu là string thì giữ nguyên
             Title_1.Image = (type(CloseUI.Icon) == "number" and gl(CloseUI.Icon).Image or CloseUI.Icon)
             Title_1.ScaleType = Enum.ScaleType.Fit
