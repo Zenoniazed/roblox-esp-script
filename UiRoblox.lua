@@ -1269,6 +1269,14 @@ function Library:Window(p)
     Icon_1_Corner.CornerRadius = UDim.new(0, 5) 
     Icon_1_Corner.Parent = Icon_1
 
+	local Icon_1_Stroke = Instance.new("UIStroke")
+    Icon_1_Stroke.Name = "IconStroke"
+    Icon_1_Stroke.Parent = Icon_1
+    Icon_1_Stroke.Color = Color3.fromRGB(255, 255, 255) -- Màu của viền (trắng)
+    Icon_1_Stroke.Thickness = 1.5 -- Độ dày của viền (pixel)
+    Icon_1_Stroke.Transparency = 0.5 -- Độ mờ của viền (0 là hiện rõ, 1 là tàng hình)
+    Icon_1_Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
     -- Quan trọng: Bật cái này để ảnh bị cắt theo các góc đã bo
     Icon_1.ClipsDescendants = true
 
