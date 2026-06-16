@@ -1705,6 +1705,13 @@ function Library:Window(p)
 		    local Section = Instance.new("Frame")
 		    local Section_1 = Instance.new("TextLabel")
 		    local UIPadding_1 = Instance.new("UIPadding")
+		    
+		    -- Tạo bo góc và viền cho Section
+		    local UICorner = Instance.new("UICorner")
+		    local UIStroke = Instance.new("UIStroke")
+		    
+		    -- Tạo một TextButton ẩn phủ lên toàn bộ Section để bắt sự kiện click ở mọi nơi
+		    local ClickButton = Instance.new("TextButton")
 		
 		    RealBackground.Name = "Real Background"
 		    RealBackground.Parent = ScrollingFrame_1
@@ -1713,28 +1720,41 @@ function Library:Window(p)
 		    RealBackground.Size = UDim2.new(1, 0, 0, 20)
 		    RealBackground.ClipsDescendants = true
 		
+		    -- Thay đổi Background của Section để hiện viền dễ hơn
 		    Section.Name = "Background"
 		    Section.Parent = RealBackground
-		    Section.BackgroundTransparency = 1
+		    Section.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Màu nền tối nhẹ để làm nổi bật viền
+		    Section.BackgroundTransparency = 0.5 -- Cho phép hơi nhìn xuyên qua hoặc đổi thành 0 nếu muốn nền đặc
 		    Section.BorderSizePixel = 0
-		    Section.Size = UDim2.new(1, 0, 0, 20)
+		    Section.Size = UDim2.new(1, 0, 1, 0) -- Giữ kích thước bằng với RealBackground
 		    Section.ZIndex = 2
+		
+		    -- Thiết lập Viền (Stroke)
+		    UIStroke.Parent = Section
+		    UIStroke.Color = Color3.fromRGB(60, 60, 60) -- Màu của viền (bạn có thể đổi theo ý muốn)
+		    UIStroke.Thickness = 1
+		    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		
+		    -- Thiết lập Bo góc (Tùy chọn, giúp giao diện mượt hơn)
+		    UICorner.Parent = Section
+		    UICorner.CornerRadius = UDim.new(0, 4)
 		
 		    Section_1.Name = "Section"
 		    Section_1.Parent = Section
 		    Section_1.BackgroundTransparency = 1
 		    Section_1.BorderSizePixel = 0
-		    Section_1.Size = UDim2.new(1, 0, 0, 20)
+		    Section_1.Size = UDim2.new(1, -20, 1, 0) -- Thu nhỏ chiều ngang một chút để tránh đè lên mũi tên
 		    Section_1.Font = Enum.Font.GothamBold
 		    Section_1.Text = Title
 		    Section_1.TextColor3 = Color3.fromRGB(255,255,255)
 		    Section_1.TextSize = 12
 		    Section_1.TextXAlignment = Enum.TextXAlignment.Left
-		    Section_1.ZIndex = 2
+		    Section_1.ZIndex = 3
 		
 		    addToTheme('Text & Icon', Section_1)
 		
-		    local Arrow = Instance.new("ImageButton")
+		    -- Mũi tên đổi thành ImageLabel thay vì ImageButton vì ta dùng nút bấm toàn vùng rồi
+		    local Arrow = Instance.new("ImageLabel")
 		    Arrow.Name = "CollapseArrow"
 		    Arrow.Parent = Section
 		    Arrow.AnchorPoint = Vector2.new(1, 0.5)
@@ -1743,10 +1763,18 @@ function Library:Window(p)
 		    Arrow.BackgroundTransparency = 1
 		    Arrow.Image = "rbxassetid://14937709869"
 		    Arrow.ImageTransparency = 0.3
-		    Arrow.ZIndex = 3
+		    Arrow.ZIndex = 4
 		    addToTheme('Text & Icon', Arrow)
 		
-		    local collapsed = false
+		    -- Nút bấm tàng hình phủ toàn bộ bề mặt Section
+		    ClickButton.Name = "ClickButton"
+		    ClickButton.Parent = Section
+		    ClickButton.Size = UDim2.new(1, 0, 1, 0)
+		    ClickButton.BackgroundTransparency = 1
+		    ClickButton.Text = ""
+		    ClickButton.ZIndex = 5 -- Nằm trên cùng để nhận click
+		
+		    local collapsed = true -- MẶC ĐỊNH BAN ĐẦU LÀ ĐÓNG
 		
 		    local function isSectionFrame(frm: Instance)
 		        local ok, has = pcall(function()
@@ -1759,6 +1787,7 @@ function Library:Window(p)
 		
 		    local function setCollapsed(state: boolean)
 		        collapsed = state
+		        -- Nếu collapsed = true (đóng) -> Xoay góc -90, ngược lại mở -> Góc 0
 		        Arrow.Rotation = collapsed and -90 or 0
 		
 		        local parentList = ScrollingFrame_1
@@ -1775,72 +1804,23 @@ function Library:Window(p)
 		        end
 		    end
 		
-		    setCollapsed(false)
+		    -- Khởi tạo trạng thái ban đầu là ĐÓNG (true)
+		    setCollapsed(true)
 		
-		    Arrow.MouseButton1Click:Connect(function()
+		    -- Bấm vào bất kì đâu trên Section đều kích hoạt đóng/mở
+		    ClickButton.MouseButton1Click:Connect(function()
 		        setCollapsed(not collapsed)
 		    end)
 		
 		    UIPadding_1.Parent = Section
-		    UIPadding_1.PaddingLeft = UDim.new(0,5)
-		    UIPadding_1.PaddingRight = UDim.new(0,5)
+		    UIPadding_1.PaddingLeft = UDim.new(0,8)
+		    UIPadding_1.PaddingRight = UDim.new(0,8)
 		
 		    local New = {}
 		    function New:SetTitle(t)
 		        Section_1.Text = t
 		    end
 		    return New
-		end
-
-		function Func:Section2(p)
-			local Title = p.Title or 'null'
-			local RealBackground = Instance.new("Frame")
-			local Section = Instance.new("Frame")
-			local Section_1 = Instance.new("TextLabel")
-			local UIPadding_1 = Instance.new("UIPadding")
-
-			RealBackground.Name = "Real Background"
-			RealBackground.Parent = ScrollingFrame_1
-			RealBackground.BackgroundTransparency = 1
-			RealBackground.BorderColor3 = Color3.fromRGB(0,0,0)
-			RealBackground.BorderSizePixel = 0
-			RealBackground.Size = UDim2.new(1, 0,0, 20)
-			RealBackground.ClipsDescendants = true
-
-			Section.Name = "Background"
-			Section.Parent = RealBackground
-			Section.BackgroundColor3 = Color3.fromRGB(255,255,255)
-			Section.BackgroundTransparency = 1
-			Section.BorderColor3 = Color3.fromRGB(0,0,0)
-			Section.BorderSizePixel = 0
-			Section.Size = UDim2.new(1, 0,0, 20)
-
-			Section_1.Name = "Section"
-			Section_1.Parent = Section
-			Section_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
-			Section_1.BackgroundTransparency = 1
-			Section_1.BorderColor3 = Color3.fromRGB(0,0,0)
-			Section_1.BorderSizePixel = 0
-			Section_1.Size = UDim2.new(1, 0,0, 20)
-			Section_1.Font = Enum.Font.GothamBold
-			Section_1.Text = Title
-			Section_1.TextColor3 = Color3.fromRGB(255,255,255)
-			Section_1.TextSize = 12
-			Section_1.TextXAlignment = Enum.TextXAlignment.Left
-
-			addToTheme('Text & Icon', Section_1)
-
-			UIPadding_1.Parent = Section
-			UIPadding_1.PaddingLeft = UDim.new(0,5)
-			UIPadding_1.PaddingRight = UDim.new(0,5)
-
-			local New = {}
-
-			function New:SetTitle(t)
-				Section_1.Text = t
-			end
-
-			return New
 		end
 
 		function Func:Toggle(p)
