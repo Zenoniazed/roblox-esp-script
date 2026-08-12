@@ -2867,6 +2867,19 @@ function Library:Window(p)
 				DropdownSelect:Clear(n)
 			end
 
+			-- Bổ sung hàm Refresh tại đây
+			function New:Refresh(newList)
+				newList = newList or {}
+				
+				-- 1. Xóa toàn bộ danh sách cũ trong Dropdown
+				DropdownSelect:Clear()
+				
+				-- 2. Thêm từng phần tử mới vào DropdownSelect
+				for _, item in ipairs(newList) do
+					DropdownSelect:Add(item)
+				end
+			end
+
 			return New
 		end
 
