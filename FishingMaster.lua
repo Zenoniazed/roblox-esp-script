@@ -37,14 +37,16 @@ local CONFIG = "LightHack_Fishing.json"
 local State = {
     AutoFish = false,
     AutoBoss = false,
+    DiscordWeather = false,
+    DiscordWebhook = "",
     MovementMode = "WalkTo",            -- WalkTo hoặc Tween
-    TweenSpeed = 20,                    -- studs/giây
+    TweenSpeed = 16,                    -- studs/giây
     AutoSell = true,                    -- Tự động bán cá khi đầy túi
     AutoLock = true,                    -- Bật/Tắt tự động khóa cá
     SelectedRarity = {"Mythical", "Legendary"}, -- Chọn nhiều độ hiếm cá cần khóa
     CastDelay = 1,                      -- Khoảng chờ giữa các lần ném cần
     TapDelay = 0.03,                     -- Tốc độ nhấp kéo cá (reeling)
-    HoldTime = 0.5,                     -- Thời gian giữ chuột khi ném cần
+    HoldTime = 0.6,                     -- Thời gian giữ chuột khi ném cần
     Luck = 1,                           -- Chỉ số Luck khi quăng cần
 }
 
@@ -71,6 +73,9 @@ local function load()
 end
 
 load()
+-- Require an explicit toggle each run; retain the webhook locally with other settings.
+State.DiscordWeather = false
+if type(State.DiscordWebhook) ~= "string" then State.DiscordWebhook = "" end
 if State.MovementMode ~= "WalkTo" and State.MovementMode ~= "Tween" then
     State.MovementMode = "WalkTo"
 end
@@ -890,7 +895,218 @@ local function bossRun()
     end
     bossStatus("Đã dò hết các đảo, không có boss; quay về")
 end
+-- Discord weather notifier: observer is independent of Auto Fishing/Auto Boss.
+local WeatherDiscord = {current = nil, queue = {}, generation = 0, status = "Đang tắt"}
+local function discordStatus(message)
+    WeatherDiscord.status = message
+    print("[Discord Weather] " .. message) -- Never print webhook URLs/tokens or response bodies.
+end
+local function validDiscordWebhook(url)
+    if type(url) ~= "string" then return false end
+    return url:match("^https://discord%.com/api/webhooks/%d+/[%w_%-]+$") ~= nil
+        or url:match("^https://discord%.com/api/v%d+/webhooks/%d+/[%w_%-]+$") ~= nil
+        or url:match("^https://discordapp%.com/api/webhooks/%d+/[%w_%-]+$") ~= nil
+end
+local function discordRequestFunction()
+    if type(request) == "function" then return request end
+    if type(http_request) == "function" then return http_request end
+    if type(syn) == "table" and type(syn.request) == "function" then return syn.request end
+    if type(http) == "table" and type(http.request) == "function" then return http.request end
+end
+-- Keep canonical event IDs through the observer and renderer.
+local function weatherDisplayName(id)
+    return id
+end
+local function discordQueue(title, description)
+    if not State.DiscordWeather then return end
+    if not validDiscordWebhook(State.DiscordWebhook) then
+        discordStatus("Webhook chưa hợp lệ; nhập URL webhook của kênh Discord.")
+        return
+    end
+    if not discordRequestFunction() then
+        discordStatus("Môi trường chạy không hỗ trợ HTTP request để gửi Discord.")
+        return
+    end
+    if #WeatherDiscord.queue >= 20 then
+        discordStatus("Hàng đợi đầy; bỏ thông báo mới để tránh spam.")
+        return
+    end
+    local styles = {
+        weather_rain = {
+            name = "Rain", icon = "🌧️", color = 3447003,
+            detail = "Chờ cá cắn câu ngắn hơn • May mắn ×1.05",
+        },
+        weather_blood_moon = {
+            name = "Blood Moon", icon = "🌕🩸", color = 15548997,
+            detail = "Máu cá giảm 20%",
+        },
+        weather_thunderstorm = {
+            name = "Thunderstorm", icon = "⛈️", color = 15844367, ping = true,
+            detail = "Sát thương kỹ năng tăng 10%",
+        },
+        weather_snowfall = {
+            name = "Snowfall", icon = "❄️", color = 1146986,
+            detail = "Tăng cơ hội chí mạng",
+        },
+        weather_void_storm = {
+            name = "Void Storm", icon = "🌑", color = 10181046, ping = true,
+            detail = "Giá bán cá tăng 20%",
+        },
+        weather_rainbow_rain = {
+            name = "Rainbow Rain", icon = "🌈", color = 16738740,
+            detail = "May mắn tăng 50%",
+        },
+    }
+    local isStarting = description:sub(1, #"Bắt đầu:") == "Bắt đầu:"
+    local weatherText = description:gsub("^Bắt đầu:%s*", "")
+    local embeds, seen = {}, {}
+    local pingEveryone = false
+
+    for id in weatherText:gmatch("[^,\r\n]+") do
+        id = id:match("^%s*(.-)%s*$")
+        if not seen[id] and #embeds < 10 then
+            seen[id] = true
+            local style = styles[id]
+            if style then
+                table.insert(embeds, {
+                    title = style.icon .. "  " .. style.name,
+                    description = "**" .. style.detail .. "**",
+                    color = style.color,
+                    footer = {text = "FISHING • WEATHER"},
+                    timestamp = DateTime.now():ToIsoDate(),
+                })
+                if isStarting and style.ping then pingEveryone = true end
+            else
+                table.insert(embeds, {
+                    title = "🌤️  THÔNG BÁO THỜI TIẾT",
+                    description = id,
+                    color = 9807270,
+                    footer = {text = "FISHING • WEATHER"},
+                    timestamp = DateTime.now():ToIsoDate(),
+                })
+            end
+        end
+    end
+    if #embeds == 0 then
+        discordStatus("Không có nội dung để gửi")
+        return
+    end
+    local payload = {
+        username = "Con Cu Mau Den",
+        content = pingEveryone and "@everyone" or "",
+        allowed_mentions = {parse = pingEveryone and {"everyone"} or {}},
+        embeds = embeds,
+    }
+
+    table.insert(WeatherDiscord.queue, {
+        body = HttpService:JSONEncode(payload),
+        url = State.DiscordWebhook,
+        generation = WeatherDiscord.generation,
+    })
+    discordStatus("Đã xếp hàng thông báo thời tiết")
+    return true
+end -- discordQueue
+
+local function discordSnapshot()
+    if not State.DiscordWeather then return end
+    local names = {}
+    for id in pairs(WeatherDiscord.current or {}) do table.insert(names, weatherDisplayName(id)) end
+    table.sort(names)
+    discordQueue("Thời tiết hiện tại", #names > 0 and table.concat(names, "\n") or "Tin thử kết nối Discord")
+end
+local function discordObserveWeather(events)
+    if type(events) ~= "table" then return end
+
+    local current = {}
+
+    for id, info in pairs(events) do
+        if type(id) == "string" and id:sub(1, 8) == "weather_" then
+            current[id] = tostring(
+                type(info) == "table" and info.started_at or ""
+            )
+        end
+    end
+
+    local previous = WeatherDiscord.current
+    WeatherDiscord.current = current
+
+    -- Lần đọc đầu chỉ ghi nhận thời tiết đang có.
+    if not previous or not State.DiscordWeather then return end
+
+    local started = {}
+
+    for id, stamp in pairs(current) do
+        if previous[id] ~= stamp then
+            table.insert(started, weatherDisplayName(id))
+        end
+    end
+
+    -- Thời tiết kết thúc: cập nhật dữ liệu, không gửi tin.
+    if #started == 0 then return end
+
+    table.sort(started)
+
+    discordQueue(
+        "Thông báo thời tiết",
+        "Bắt đầu: " .. table.concat(started, ", ")
+    )
+end
+local function discordSetEnabled(enabled)
+    State.DiscordWeather = enabled == true
+    WeatherDiscord.generation = WeatherDiscord.generation + 1
+    WeatherDiscord.queue = {}
+    if State.DiscordWeather then
+        discordStatus("Đang theo dõi; chỉ báo khi thời tiết bắt đầu")
+    else
+        discordStatus("Đang tắt")
+    end
+    save()
+end
+-- One sender prevents overlapping requests; only explicit rate limits are retried.
+task.spawn(function()
+    while task.wait(0.2) do
+        local item = table.remove(WeatherDiscord.queue, 1)
+        if item then
+            local function valid()
+                return State.DiscordWeather and item.generation == WeatherDiscord.generation
+                    and item.url == State.DiscordWebhook
+            end
+            for attempt = 1, 3 do
+                if not valid() then break end
+                local send = discordRequestFunction()
+                if not send then discordStatus("Không có HTTP request"); break end
+                local ok, response = pcall(send, {
+                    Url = item.url .. "?wait=true", Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"}, Body = item.body,
+                })
+                if not valid() then break end
+                local status = ok and type(response) == "table" and tonumber(response.StatusCode or response.Status)
+                if status and status >= 200 and status < 300 then
+                    discordStatus("Đã gửi thông báo thành công")
+                    break
+                elseif status == 429 and attempt < 3 then
+                    local decoded, data = pcall(function() return HttpService:JSONDecode(response.Body or "") end)
+                    local delay = decoded and type(data) == "table" and tonumber(data.retry_after)
+                    if not delay or delay ~= delay or delay < 0 or delay > 120 then
+                        discordStatus("Discord giới hạn gửi; bỏ thông báo này."); break
+                    end
+                    discordStatus("Discord giới hạn gửi; đang chờ thử lại")
+                    local deadline = os.clock() + delay + 0.5
+                    while valid() and os.clock() < deadline do task.wait(0.1) end
+                else
+                    discordStatus(status and ("Gửi thất bại: HTTP " .. tostring(status))
+                        or "Lỗi kết nối HTTP; kiểm tra hỗ trợ request của môi trường chạy.")
+                    break
+                end
+            end
+            task.wait(1)
+        end
+    end
+end)
+
 local function bossUpdateWeather(events)
+    local notified = pcall(discordObserveWeather, events)
+    if not notified then discordStatus("Không xử lý được dữ liệu thông báo thời tiết") end
     if type(events)~="table" then return end
     local keys = {}
     for id, info in pairs(events) do
@@ -909,7 +1125,10 @@ task.spawn(function()
         event.ActiveEventsChanged:Connect(function() bossUpdateWeather(event:GetActiveEvents()) end)
         bossUpdateWeather(event:GetActiveEvents())
     end)
-    if not ok then bossStatus("Không đọc được thời tiết: " .. tostring(err)); return end
+    if not ok then
+        discordStatus("Không đọc được EventController; chưa thể theo dõi thời tiết")
+        bossStatus("Không đọc được thời tiết: " .. tostring(err)); return
+    end
     while task.wait(0.5) do
         if State.AutoFish and State.AutoBoss and Boss.weather and not Boss.busy and not isSelling and not manualTravelBusy
             and not Boss.home and Boss.completedWeather~=Boss.weatherKey then
@@ -1128,6 +1347,50 @@ local Window = Library:Window({
         Icon = 71051887760757
     }
 })
+
+local DiscordTab = Window:Tab({Title = "Discord", Icon = "bell"}) do
+    DiscordTab:Section({Title = "Thông báo thời tiết"})
+    DiscordTab:Textbox({
+        Title = "Discord Webhook URL",
+        Desc = "Dán URL webhook của kênh văn bản, rồi nhấn Enter. URL được lưu trong cấu hình máy.",
+        Value = State.DiscordWebhook, Placeholder = "https://discord.com/api/webhooks/...",
+        ClearText = true,
+        Callback = function(value)
+            local url = tostring(value):match("^%s*(.-)%s*$")
+            if not validDiscordWebhook(url) then
+                discordStatus("URL không hợp lệ; giữ webhook cũ."); return
+            end
+            if url == State.DiscordWebhook then return end
+            State.DiscordWebhook = url
+            WeatherDiscord.generation = WeatherDiscord.generation + 1
+            WeatherDiscord.queue = {}
+            save()
+            discordStatus("Đã lưu webhook")
+        end,
+    })
+    DiscordTab:Toggle({
+        Title = "Gửi thời tiết lên Discord",
+        Desc = "Chỉ báo đợt thời tiết mới. Void Storm và sét ping @everyone. Không cần Auto Fishing.",
+        Value = false, Callback = discordSetEnabled,
+    })
+    DiscordTab:Button({
+        Title = "Gửi thử thời tiết hiện tại",
+        Callback = function()
+            if not State.DiscordWeather then discordStatus("Hãy bật gửi Discord trước"); return end
+            discordStatus("Đang tạo tin gửi thử...")
+            local ok = pcall(discordSnapshot)
+            if not ok then
+                discordStatus("Lỗi tạo tin thử; kiểm tra phần discordQueue và dữ liệu embed.")
+            end
+        end,
+    })
+    local statusLabel = DiscordTab:Label({Title = "Trạng thái Discord", Desc = WeatherDiscord.status})
+    task.spawn(function()
+        while task.wait(0.5) do
+            if statusLabel then statusLabel:SetDesc(WeatherDiscord.status) end
+        end
+    end)
+end
 
 local MainTab = Window:Tab({Title = "Main", Icon = "star"}) do
     MainTab:Section({Title = "Chế độ di chuyển"})
