@@ -937,7 +937,7 @@ local function discordQueue(title, description)
             detail = "Chờ cá cắn câu ngắn hơn • May mắn ×1.05",
         },
         weather_blood_moon = {
-            name = "Blood Moon", icon = "🌕🩸", color = 15548997,
+            name = "Blood Moon", icon = "🌕🩸", color = 15548997, ping = true,
             detail = "Máu cá giảm 20%",
         },
         weather_thunderstorm = {
