@@ -1219,7 +1219,7 @@ local function CastOnce()
 
     local function Mouse(down)
         VirtualInputManager:SendMouseButtonEvent(
-            centerPosition.X, 50, 0, down, game, 0
+            centerPosition.X, 100, 0, down, game, 0
         )
     end
 
