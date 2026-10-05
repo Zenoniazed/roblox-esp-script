@@ -495,7 +495,7 @@ local function tweenTo(position, stopDistance, shouldContinue)
         return not cleaned and allowed() and (root.Position - position).Magnitude <= radius
     end, tostring)
     cleanup()
-    if not ok then  return false end
+    if not ok then return false end
     return reached
 end
 
@@ -600,6 +600,12 @@ local function bossPatrolContinue(token, returning)
         local fx, spot, island = bossFindLoaded()
         if fx then
             Boss.detected = {fx=fx, spot=spot, island=island}
+            return false
+        end
+        local destination=Boss.patrolDestination
+        local observation=destination and Boss.regionObservations and Boss.regionObservations[destination.id]
+        if observation and observation.empty then
+            Boss.skipDestination=destination.id
             return false
         end
     end
@@ -794,7 +800,7 @@ local function bossRegionForFX(fx)
         node=node.Parent
     end
 end
-local function insideBossRegion(region,position)
+local function insideBossRegion(region,position,inset)
     if not region or not region:IsDescendantOf(workspace) then return false end
     local cf,size
     if region:IsA("BasePart") then
@@ -806,8 +812,10 @@ local function insideBossRegion(region,position)
     end
     local point=cf:PointToObjectSpace(position)
     local half=size*0.5
-    return math.abs(point.X)<=half.X and math.abs(point.Y)<=half.Y
-        and math.abs(point.Z)<=half.Z
+    local marginX=math.min(inset or 0,half.X*0.25)
+    local marginZ=math.min(inset or 0,half.Z*0.25)
+    return math.abs(point.X)<=half.X-marginX and math.abs(point.Y)<=half.Y
+        and math.abs(point.Z)<=half.Z-marginZ
 end
 local function islandZoneInfo(island,position)
     local folder=bossIslandsFolder()
@@ -833,7 +841,50 @@ local function islandZoneInfo(island,position)
     target=target or nearest
     return target and target.Position,inside,target~=nil
 end
-local function boatDrive(position,token,returning,canContinue,arrivalRegion,departureOnly,arrivalIsland)
+local islandMapBounds={}
+local function islandMapInfo(island,position)
+    local folder=bossIslandsFolder()
+    local node=folder and folder:FindFirstChild(island.id)
+    local map=node and node:FindFirstChild("Map")
+    if not map then return nil,false,false end
+    local bounds=islandMapBounds[island.id]
+    if not bounds or bounds.map~=map or os.clock()-bounds.checkedAt>=1 then
+        local cf,size
+        if map:IsA("BasePart") then
+            cf,size=map.CFrame,map.Size
+        elseif map:IsA("Model") and map:FindFirstChildWhichIsA("BasePart",true) then
+            cf,size=map:GetBoundingBox()
+        else
+            -- Folder support: enclose the world-space corners of every map part.
+            local low,high
+            for _,part in ipairs(map:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local half=part.Size*0.5
+                    for _,x in ipairs({-1,1}) do
+                        for _,y in ipairs({-1,1}) do
+                            for _,z in ipairs({-1,1}) do
+                                local corner=part.CFrame:PointToWorldSpace(Vector3.new(half.X*x,half.Y*y,half.Z*z))
+                                low=low and Vector3.new(math.min(low.X,corner.X),math.min(low.Y,corner.Y),math.min(low.Z,corner.Z)) or corner
+                                high=high and Vector3.new(math.max(high.X,corner.X),math.max(high.Y,corner.Y),math.max(high.Z,corner.Z)) or corner
+                            end
+                        end
+                    end
+                end
+            end
+            if low then cf,size=CFrame.new((low+high)*0.5),high-low end
+        end
+        bounds={map=map,cf=cf,size=size,checkedAt=os.clock()}
+        islandMapBounds[island.id]=bounds
+    end
+    if not bounds.cf then return nil,false,false end
+    -- Island arrival uses the map footprint, independent of water/land height.
+    local point=bounds.cf:PointToObjectSpace(position)
+    local half=bounds.size*0.5
+    local inside=math.abs(point.X)<=half.X and math.abs(point.Z)<=half.Z
+    local center=bounds.cf.Position
+    return Vector3.new(center.X,position.Y,center.Z),inside,true
+end
+local function boatDrive(position,token,returning,canContinue,arrivalRegion,departureOnly,arrivalIsland,stopDistance,islandInfo)
     local function allowed()
         if canContinue then return canContinue() end
         return bossAllowed(token,returning)
@@ -850,8 +901,9 @@ local function boatDrive(position,token,returning,canContinue,arrivalRegion,depa
     if env.CarNoclipStop then pcall(env.CarNoclipStop) end
     if env.CarDebugStop then pcall(env.CarDebugStop) end
     local TARGET=position
-    local zoneCheckAt=-math.huge
-    local C={Radius=50,StopDistance=returning and 30 or 10,Rays=48,ScanInterval=0.15,
+    islandInfo=islandInfo or islandMapInfo
+    local mapCheckAt=-math.huge
+    local C={Radius=50,StopDistance=stopDistance or (returning and 20 or 10),Rays=48,ScanInterval=0.15,
         AvoidWeight=1.4,ClearDelay=0.7,Timeout=600}
     local running = true
     local completed=false
@@ -1054,25 +1106,32 @@ local function boatDrive(position,token,returning,canContinue,arrivalRegion,depa
     end)
     driveConnection = RunService.PreSimulation:Connect(function()
         local ok, err = xpcall(function()
-            if not allowed() then stop("Đã hủy hoặc phát hiện boss cần đổi hướng"); return end
+            if not allowed() then
+                if Boss.patrolling and Boss.skipDestination and not Boss.detected then
+                    stop("Đã kiểm tra đảo, không có boss",true)
+                else
+                    stop("Đã hủy hoặc phát hiện boss cần đổi hướng")
+                end
+                return
+            end
             if player.Character ~= char or hum.Health <= 0
                 or not main:IsDescendantOf(workspace) or not seat:IsDescendantOf(workspace)
                 or hum.SeatPart ~= seat then stop("Đã rời ghế hoặc mất thuyền."); return end
             local now = os.clock()
             local root=char:FindFirstChild("HumanoidRootPart")
-            if arrivalIsland and root and now-zoneCheckAt>=0.1 then
-                zoneCheckAt=now
-                local zonePosition,inZone=islandZoneInfo(arrivalIsland,root.Position)
-                if zonePosition then TARGET=zonePosition end
+            if arrivalIsland and root and now-mapCheckAt>=0.1 then
+                mapCheckAt=now
+                local mapPosition,inZone=islandInfo(arrivalIsland,root.Position)
+                if mapPosition then TARGET=mapPosition end
                 -- Finish departure first so its parking point is saved outside the dock.
                 if inZone and departureDone then
-                    stop("Đã vào zone "..arrivalIsland.id,true)
+                    stop("Đã vào phạm vi đảo "..arrivalIsland.id,true)
                     return
                 end
             end
-            if arrivalRegion and root and insideBossRegion(arrivalRegion,root.Position) then
+            if arrivalRegion and root and insideBossRegion(arrivalRegion,root.Position,12) then
                 Boat.departurePending=false
-                stop("Đã vào vùng boss "..arrivalRegion.Name,true)
+                stop("Đã vào sâu vùng boss "..arrivalRegion.Name,true)
                 return
             end
             if not departureDone then
@@ -1102,11 +1161,11 @@ local function boatDrive(position,token,returning,canContinue,arrivalRegion,depa
                 stop("Đã tới đích",true); return
             end
             if arrivalIsland and distance<0.1 then
-                local _,inZone=islandZoneInfo(arrivalIsland,root and root.Position or main.Position)
+                local _,inZone=islandInfo(arrivalIsland,root and root.Position or main.Position)
                 if inZone then
-                    stop("Đã vào zone "..arrivalIsland.id,true)
+                    stop("Đã vào phạm vi đảo "..arrivalIsland.id,true)
                 else
-                    stop("Đã tới tâm X/Z nhưng nhân vật chưa vào Size zone "..arrivalIsland.id)
+                    stop("Đã tới tâm X/Z nhưng nhân vật chưa vào phạm vi đảo "..arrivalIsland.id)
                 end
                 return
             end
@@ -1147,7 +1206,13 @@ local function boatDrive(position,token,returning,canContinue,arrivalRegion,depa
         if not ok then stop("Lỗi: "..tostring(err)) end
     end)
     while running do
-        if not allowed() then stop("Đã hủy hoặc đổi mục tiêu") end
+        if not allowed() then
+            if Boss.patrolling and Boss.skipDestination and not Boss.detected then
+                stop("Đã kiểm tra đảo, không có boss",true)
+            else
+                stop("Đã hủy hoặc đổi mục tiêu")
+            end
+        end
         task.wait(0.05)
     end
     return completed
@@ -1214,9 +1279,9 @@ local function bossTravel(destination, token, returning)
     if not bossAllowed(token, returning) then return false end
     local root = bossCharacter()
     if not root then return false end
-    local zonePosition,inZone=islandZoneInfo(destination,root.Position)
+    local mapPosition,inZone=islandMapInfo(destination,root.Position)
     if inZone then return true end
-    local spot=zonePosition or nearestIslandSpot(destination,root.Position)
+    local spot=mapPosition or nearestIslandSpot(destination,root.Position)
     bossStatus("Lái xe tới " .. destination.id)
     Boat.lastFailure=nil
     return boatDrive(spot,token,returning,nil,nil,nil,destination)
@@ -1224,9 +1289,10 @@ end
 local function bossFind(island)
     local folder = bossIslandsFolder()
     local node = folder and folder:FindFirstChild(island.id)
-    if not node then return nil end
+    local regions=node and node:FindFirstChild("BossRegions")
+    if not regions then return nil end
     local bestFX, bestSpot, bestDistance
-    for _, fx in ipairs(node:GetDescendants()) do
+    for _, fx in ipairs(regions:GetDescendants()) do
         if fx:IsA("BasePart") and fx.Name=="BossSpawnerFX" and fx:GetAttribute("BossSpawnerFXActive")==true then
             for _, spot in ipairs(island.spots) do
                 local d = (fx.Position-spot).Magnitude
@@ -1238,23 +1304,78 @@ local function bossFind(island)
     end
     return bestFX, bestSpot
 end
-bossFindLoaded = function()
-    local current = bossCurrentIsland()
-    if current then
-        local fx, spot = bossFind(current)
-        if fx then return fx, spot, current end
+local function bossObserveRegions()
+    local now=os.clock()
+    if Boss.regionScanAt and now-Boss.regionScanAt<0.1 then return end
+    Boss.regionScanAt=now
+    Boss.regionObservations=Boss.regionObservations or {}
+    local folder=bossIslandsFolder()
+    for _,island in ipairs(BOSS_ISLANDS) do
+        local record=Boss.regionObservations[island.id] or {}
+        Boss.regionObservations[island.id]=record
+        record.fx,record.spot=nil,nil
+        local node=folder and folder:FindFirstChild(island.id)
+        local regions=node and node:FindFirstChild("BossRegions")
+        local regionCount,fxCount=0,0
+        local complete=regions~=nil
+        if regions then
+            for _,region in ipairs(regions:GetChildren()) do
+                if region:IsA("BasePart") or region:IsA("Model") or region:IsA("Folder") then
+                    regionCount=regionCount+1
+                    local known=false
+                    for _,fx in ipairs(region:GetDescendants()) do
+                        if fx:IsA("BasePart") and fx.Name=="BossSpawnerFX" then
+                            fxCount=fxCount+1
+                            local active=fx:GetAttribute("BossSpawnerFXActive")
+                            if active==true or active==false then known=true else complete=false end
+                            if active==true and not record.fx then
+                                record.fx=fx
+                                record.spot=nearestIslandSpot(island,fx.Position)
+                            end
+                        end
+                    end
+                    if not known then complete=false end
+                end
+            end
+        end
+        if record.fx then
+            record.empty=false
+            record.stableAt=nil
+        elseif complete and regionCount>0 and fxCount>=regionCount then
+            if record.regions~=regions or record.regionCount~=regionCount or record.fxCount~=fxCount then
+                record.stableAt=now
+            end
+            record.stableAt=record.stableAt or now
+            -- Brief streaming settle, without driving into the island first.
+            if now-record.stableAt>=0.2 then record.empty=true end
+        else
+            record.stableAt=nil
+            -- Retain an already checked empty island for this patrol; active FX overrides it.
+        end
+        record.regions,record.regionCount,record.fxCount=regions,regionCount,fxCount
     end
-    for _, island in ipairs(BOSS_ISLANDS) do
-        if island ~= current then
-            local fx, spot = bossFind(island)
-            if fx then return fx, spot, island end
+end
+bossFindLoaded = function()
+    bossObserveRegions()
+    local current=bossCurrentIsland()
+    local records=Boss.regionObservations
+    local record=current and records and records[current.id]
+    if record and record.fx and record.fx:IsDescendantOf(workspace)
+        and record.fx:GetAttribute("BossSpawnerFXActive")==true then
+        return record.fx,record.spot,current
+    end
+    for _,island in ipairs(BOSS_ISLANDS) do
+        record=records and records[island.id]
+        if record and record.fx and record.fx:IsDescendantOf(workspace)
+            and record.fx:GetAttribute("BossSpawnerFXActive")==true then
+            return record.fx,record.spot,island
         end
     end
 end
 local function bossScan(island, token)
     if not bossAllowed(token,false) then return nil end
     bossStatus("Kiểm tra "..island.id)
-    -- Arrival in Zones is sufficient: check now and move on if nothing is active.
+    -- Arrival in the map footprint is sufficient: check now and move on if nothing is active.
     local fx,spot=bossFind(island)
     if fx then return fx,spot,island end
     return bossFindLoaded()
@@ -1455,6 +1576,9 @@ local function bossRun()
     bossStatus("Chờ lượt câu kết thúc")
     if not bossDrain() then error("Chưa kết thúc lượt câu hiện tại") end
     local token = Boss.cancel
+    Boss.regionObservations={}
+    Boss.regionScanAt=nil
+    Boss.patrolDestination,Boss.skipDestination=nil,nil
     Boss.patrolling=false
     boatPrepare(token)
     -- Leave the parking area immediately, before scanning the current island.
@@ -1498,13 +1622,21 @@ local function bossRun()
         for _, island in ipairs(ordered) do
             if not bossAllowed(token,false) then Boss.patrolling=false; return end
             if dispatchDetected() then return end
-            local arrived = bossTravel(island,token,false)
-            if dispatchDetected() then return end
-            if arrived then
-                local fx, spot, foundIsland = bossScan(island,token)
-                if fx then
-                    Boss.detected={fx=fx,spot=spot,island=foundIsland}
-                    if dispatchDetected() then return end
+            local observation=Boss.regionObservations and Boss.regionObservations[island.id]
+            if not observation or not observation.empty then
+                Boss.patrolDestination=island
+                Boss.skipDestination=nil
+                local arrived=bossTravel(island,token,false)
+                Boss.patrolDestination=nil
+                local skipped=Boss.skipDestination==island.id
+                Boss.skipDestination=nil
+                if dispatchDetected() then return end
+                if arrived and not skipped then
+                    local fx,spot,foundIsland=bossScan(island,token)
+                    if fx then
+                        Boss.detected={fx=fx,spot=spot,island=foundIsland}
+                        if dispatchDetected() then return end
+                    end
                 end
             end
         end
@@ -1757,6 +1889,7 @@ task.spawn(function()
             local ran, failure = xpcall(bossRun,tostring)
             Boss.fishing = false
             Boss.patrolling = false
+            Boss.patrolDestination,Boss.skipDestination=nil,nil
             Boss.detected = nil
             Boss.catchBaseline = nil
 
@@ -2125,6 +2258,16 @@ local MainTab = Window:Tab({Title = "Câu cá", Icon = "star"}) do
     })
 end
 
+local function islandCarSpawnPosition(island)
+    local folder=bossIslandsFolder()
+    local node=folder and folder:FindFirstChild(island.id)
+    local spawn=node and node:FindFirstChild("CarSpawn")
+    if not spawn then return nil end
+    if spawn:IsA("BasePart") then return spawn.Position end
+    if spawn:IsA("Model") then return spawn:GetPivot().Position end
+    local part=spawn:FindFirstChildWhichIsA("BasePart",true)
+    return part and part.Position
+end
 -- Manual island movement: selected boat/tween mode; independent of Auto Fish and weather.
 local function travelToSelectedIsland(destination)
     if manualTravelBusy or isSelling or Boss.busy then
@@ -2156,8 +2299,8 @@ local function travelToSelectedIsland(destination)
             if not canContinue() then error("Đã hủy di chuyển") end
             root = bossCharacter()
             if not root then error("Không tìm thấy nhân vật") end
-            local zonePosition=islandZoneInfo(destination,root.Position)
-            local spot=zonePosition or nearestIslandSpot(destination,root.Position)
+            local mapPosition=islandZoneInfo(destination,root.Position)
+            local spot=mapPosition or nearestIslandSpot(destination,root.Position)
             if useBoat then
                 -- Reuse an already occupied driver seat; otherwise spawn via the merchant.
                 boatRelease()
@@ -2170,7 +2313,7 @@ local function travelToSelectedIsland(destination)
                     boatPrepare(token,canContinue)
                 end
                 manualTravelStatus="Đang lái tới "..destination.id
-                if not boatDrive(spot,token,false,canContinue,nil,nil,destination) then
+                if not boatDrive(spot,token,false,canContinue,nil,nil,destination,nil,islandZoneInfo) then
                     error(Boat.lastFailure or ("Xe chưa đến "..destination.id))
                 end
             else
@@ -2194,9 +2337,26 @@ local function travelToSelectedIsland(destination)
                 end
                 if not arrived then error("Chưa vào Size zone "..destination.id) end
             end
+            manualTravelStatus="Đang tới gần CarSpawn"
+            local spawnPosition=islandCarSpawnPosition(destination)
+            local spawnDeadline=os.clock()+3
+            while not spawnPosition and os.clock()<spawnDeadline do
+                if not canContinue() then error("Đã hủy di chuyển") end
+                task.wait(0.1)
+                spawnPosition=islandCarSpawnPosition(destination)
+            end
+            if not spawnPosition then error("Chưa thấy CarSpawn của "..destination.id) end
+            if useBoat then
+                Boat.lastFailure=nil
+                if not boatDrive(spawnPosition,token,false,canContinue,nil,nil,nil,50) then
+                    error(Boat.lastFailure or "Chưa tới gần CarSpawn")
+                end
+            elseif not tweenTo(spawnPosition,25,canContinue) then
+                error("Chưa tới gần CarSpawn")
+            end
             -- The selected island becomes the new fishing home after a manual trip.
             if State.AutoFish then captureFishingHome(true) end
-            manualTravelStatus="Đã vào zone "..destination.id
+            manualTravelStatus="Đã tới gần CarSpawn "..destination.id
         end, tostring)
         if not ok then
             local message=tostring(err):gsub("^.-:%d+:%s*", "")
