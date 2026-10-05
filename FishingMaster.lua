@@ -87,6 +87,7 @@ State.TweenSpeed = (loadedTweenSpeed and loadedTweenSpeed == loadedTweenSpeed)
 
 -- 3. CÁC BIẾN QUẢN LÝ AUTO LOCK & PATHFINDING
 local Boss
+local bossCharacter
 local manualTravelBusy = false
 local manualTravelStatus = "Sẵn sàng"
 local sequence = 0
@@ -633,7 +634,7 @@ local BOSS_ISLANDS = {
 local function bossStatus(message)
     Boss.status = message
 end
-local function bossCharacter()
+bossCharacter = function()
     local c = LocalPlayer.Character
     local h = c and c:FindFirstChildOfClass("Humanoid")
     local r = c and c:FindFirstChild("HumanoidRootPart")
