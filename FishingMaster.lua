@@ -6,12 +6,42 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
 local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
+
+-- Anti-AFK: vừa bắt sự kiện Idled, vừa chủ động pulse định kỳ để tránh phụ thuộc một cơ chế.
+-- Pulse chỉ gửi một thao tác chuột phải cực ngắn, không làm nhân vật di chuyển.
+local AntiAFK = {lastPulse = 0, pulses = 0}
+local function antiAfkPulse()
+    local now=os.clock()
+    if now-AntiAFK.lastPulse < 10 then return end
+    AntiAFK.lastPulse=now
+    AntiAFK.pulses=AntiAFK.pulses+1
+    pcall(function()
+        VirtualUser:CaptureController()
+        local camera=workspace.CurrentCamera
+        local cameraCF=camera and camera.CFrame or CFrame.new()
+        local pos=Vector2.new(0,0)
+        VirtualUser:Button2Down(pos,cameraCF)
+        task.wait(0.05)
+        VirtualUser:Button2Up(pos,cameraCF)
+    end)
+end
+
+LocalPlayer.Idled:Connect(function()
+    task.spawn(antiAfkPulse)
+end)
+
+task.spawn(function()
+    while task.wait(60) do
+        antiAfkPulse()
+    end
+end)
 
 -- 1. TẢI STARDUST FRAMEWORK & CONTROLLERS
 local Stardust = require(ReplicatedStorage:WaitForChild("Stardust"))
@@ -42,7 +72,7 @@ local State = {
     DiscordWeather = false,
     DiscordWebhook = "",
     MovementMode = "WalkTo",            -- WalkTo hoặc Tween
-    TweenSpeed = 16,                    -- studs/giây
+    TweenSpeed = 8,                    -- studs/giây
     AutoSell = true,                    -- Tự động bán cá khi đầy túi
     AutoLock = true,                    -- Bật/Tắt tự động khóa cá
     SelectedRarity = {"Mythical", "Legendary"}, -- Chọn nhiều độ hiếm cá cần khóa
@@ -523,14 +553,50 @@ local function restoreFishingHomeIfDrifted()
     local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not home or not root then return end
     local distance = (root.Position - home.position).Magnitude
-    if distance > 0.75 then
+    if distance > 0.35 then
         -- Ép về đúng tọa độ gốc; chỉ chạy khi không có tác vụ di chuyển khác.
         cancelMovementTween()
         currentPathId = currentPathId + 1
         root.CFrame = home.cf
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
         local humanoid = root.Parent and root.Parent:FindFirstChildOfClass("Humanoid")
         if humanoid then humanoid:Move(Vector3.zero) end
     end
+end
+
+-- Sau Tween/server correction, chỉ kết thúc khi nhân vật đã đứng ổn định tại điểm câu.
+local function stabilizeFishingHome(maxSeconds, stableSeconds)
+    local home = FishingHome
+    if not home then return false end
+    local deadline = os.clock() + (maxSeconds or 5)
+    local stableFrom
+    while State.AutoFish and os.clock() < deadline do
+        if State.AutoBoss or manualTravelBusy or (Boss and Boss.busy) then return false end
+        local root, humanoid = bossCharacter()
+        if not root then return false end
+        local distance = (root.Position - home.position).Magnitude
+        if distance > 0.35 then
+            cancelMovementTween()
+            currentPathId = currentPathId + 1
+            root.CFrame = home.cf
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            if humanoid then humanoid:Move(Vector3.zero) end
+            stableFrom = nil
+        else
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            if humanoid then humanoid:Move(Vector3.zero) end
+            stableFrom = stableFrom or os.clock()
+            if os.clock() - stableFrom >= (stableSeconds or 1.2) then
+                root.CFrame = home.cf
+                return true
+            end
+        end
+        task.wait(0.1)
+    end
+    return false
 end
 
 -- 7. LOGIC AUTO SELL FISH & RETURN (CÓ KHÔI PHỤC HƯỚNG NHÌN CŨ)
@@ -538,52 +604,49 @@ local function AutoSellFish()
     if isSelling or manualTravelBusy or (Boss and Boss.busy) or not State.AutoFish then return end
     isSelling = true
 
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local root = character and character:FindFirstChild("HumanoidRootPart")
-    local home = FishingHome or captureFishingHome(false)
+    local ok, err = xpcall(function()
+        local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        local home = FishingHome or captureFishingHome(false)
+        if not root or not home then return end
 
-    if not root or not home then
-        isSelling = false
-        return
-    end
+        local originalCFrame = home.cf
+        local originalSpot = home.position
+        local npc = FindNPC("npc_fish_seller_1")
+        local npcPos, npcCFrame = GetNPCPosition(npc)
+        if not npcPos then return end
 
-    local originalCFrame = home.cf
-    local originalSpot = home.position
-
-    local npc = FindNPC("npc_fish_seller_1")
-    local npcPos, npcCFrame = GetNPCPosition(npc)
-
-    if npcPos then
         local targetPos = npcPos + (npcCFrame and npcCFrame.LookVector * 4 or Vector3.new(0, 0, 4))
-        if not moveTo(targetPos) then
-            isSelling = false
-            return
+        local moved=moveTo(targetPos)
+        root=bossCharacter()
+        if not moved and (not root or (root.Position-targetPos).Magnitude>12) then return end
+        if not State.AutoFish then return end
+
+        task.wait(0.5)
+        pcall(function() Sell:SellAll() end)
+        task.wait(0.5)
+        if not State.AutoFish then return end
+
+        -- moveTo có thể báo false dù đã gần đích; luôn có CFrame cuối để phục hồi điểm câu.
+        pcall(function() moveTo(originalSpot) end)
+        root = bossCharacter()
+        if root then
+            root.CFrame = originalCFrame
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            local humanoid = root.Parent and root.Parent:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid:Move(Vector3.zero) end
         end
-    else
-        isSelling = false
-        return
-    end
 
-    task.wait(0.5)
-    local status, coins, count = Sell:SellAll()
-    task.wait(0.5)
+        stabilizeFishingHome(6, 1.2)
+    end, tostring)
 
-    if not State.AutoFish then
-        isSelling = false
-        return
-    end
-
-    local returned = moveTo(originalSpot)
-    root = bossCharacter()
-    if root then
-        -- Không lấy root.Position hiện tại làm gốc; luôn dùng home.cf đã khóa từ lúc bật Auto Fish.
-        root.CFrame = originalCFrame
-        local humanoid = root.Parent and root.Parent:FindFirstChildOfClass("Humanoid")
-        if humanoid then humanoid:Move(Vector3.zero) end
-    end
-
-    task.wait(0.2)
+    -- FINALLY: không cho một lỗi bán cá giữ isSelling=true vĩnh viễn.
     isSelling = false
+    if State.AutoFish and not manualTravelBusy and not (Boss and Boss.busy) then
+        pendingCast = true
+        nextCastAt = os.clock() + 0.3
+    end
 end
 
 -- AUTO BOSS: one worker owns movement; scan loaded regions during every patrol step.
@@ -755,6 +818,47 @@ local function boatPrepare(token, canContinue)
         if canContinue then return canContinue() end
         return bossAllowed(token,false)
     end
+
+    -- Ưu tiên dùng lại xe hiện có nếu xe cách người chơi không quá 150 studs.
+    boatRelease()
+    local root=bossCharacter()
+    local cars=workspace:FindFirstChild("Cars")
+    local existing=cars and cars:FindFirstChild(tostring(LocalPlayer.UserId))
+    if root and existing and existing:IsA("Model") then
+        local distance=(root.Position-existing:GetPivot().Position).Magnitude
+        if distance<=150 and boatBind() then
+            bossStatus(("Xe đã có sẵn (%.0f studs), đi tới xe"):format(distance))
+            if (root.Position-Boat.main.Position).Magnitude>12 then
+                local moved=moveTo(Boat.main.Position,nil,allowed)
+                root=bossCharacter()
+
+                -- Tween/WalkTo đôi khi trả false dù nhân vật thực tế đã tới sát xe.
+                -- Chỉ coi là thất bại nếu sau khi di chuyển vẫn còn cách cả Main và DSeat > 20 studs.
+                local nearVehicle=false
+                if root and Boat.model and Boat.model.Parent then
+                    local mainDistance=Boat.main and Boat.main.Parent
+                        and (root.Position-Boat.main.Position).Magnitude or math.huge
+                    local seatDistance=Boat.seat and Boat.seat.Parent
+                        and (root.Position-Boat.seat.Position).Magnitude or math.huge
+                    nearVehicle=math.min(mainDistance,seatDistance)<=20
+                end
+
+                if not moved and not nearVehicle then
+                    error("Không đi tới được xe đã tạo")
+                end
+            end
+            if not allowed() then error("Đã hủy chuẩn bị xe") end
+            Boat.dock=Boat.model:GetPivot()
+            Boat.returnDock=nil
+            Boat.departurePending=true
+            if not boatSit(allowed) then error("Không ngồi được ghế lái DSeat") end
+            bossStatus("Đã lên xe có sẵn")
+            return
+        end
+    end
+
+    -- Không có xe hoặc xe xa hơn 150 studs: tới NPC gọi xe mới như cũ.
+    boatRelease()
     local island=bossCurrentIsland()
     local folder=bossIslandsFolder()
     local node=folder and island and folder:FindFirstChild(island.id)
@@ -768,9 +872,9 @@ local function boatPrepare(token, canContinue)
     if not merchant then error("Không tìm thấy NPC gọi xe trên đảo hiện tại") end
     local position=GetNPCPosition(merchant)
     if not position then error("Không xác định được vị trí NPC gọi xe") end
-    bossStatus("Đi tới NPC gọi xe: "..merchant.Name)
+    bossStatus(existing and "Xe hiện tại quá xa; đi NPC gọi xe mới" or "Chưa có xe; đi NPC gọi xe")
     if not moveTo(position,nil,allowed) then error("Không đến được NPC gọi xe") end
-    local root=bossCharacter()
+    root=bossCharacter()
     if not allowed() or not root or (root.Position-position).Magnitude>10 then
         error("Chưa đủ gần NPC gọi xe")
     end
@@ -787,7 +891,6 @@ local function boatPrepare(token, canContinue)
         task.wait(0.2)
     until os.clock()>deadline
     if not Boat.model then error("Không thấy xe của người chơi sau khi gọi") end
-    -- Save the exact vehicle pose where the player first boards, before driving.
     Boat.dock=Boat.model:GetPivot()
     Boat.returnDock=nil
     Boat.departurePending=true
@@ -934,7 +1037,10 @@ local function boatDrive(position,token,returning,canContinue,arrivalRegion,depa
     env.BoatAvoidStop = stop
     local ray = RaycastParams.new()
     ray.FilterType = Enum.RaycastFilterType.Exclude
-    ray.FilterDescendantsInstances = {boat, char}
+    -- Bỏ qua toàn bộ xe trong workspace.Cars khi dò vật cản.
+    -- Xe người chơi khác có thể xuyên qua nên không cần đánh lái né chúng.
+    local carsFolder = workspace:FindFirstChild("Cars")
+    ray.FilterDescendantsInstances = carsFolder and {carsFolder, char} or {boat, char}
     ray.IgnoreWater = true
     ray.RespectCanCollide = true
     ray.CollisionGroup = main.CollisionGroup
@@ -1260,10 +1366,22 @@ local function bossWalk(position, token, returning, exact)
 end
 local function bossDrain(waitUntilIdle)
     Boss.fishing = false
-    local deadline = os.clock()+BOSS_OPTIONS.DrainSeconds
+    -- Kể cả nhánh waitUntilIdle cũng phải có trần; nếu state game lỗi thì không treo worker vô hạn.
+    local maxWait = waitUntilIdle and math.max(BOSS_OPTIONS.DrainSeconds, 180) or BOSS_OPTIONS.DrainSeconds
+    local deadline = os.clock()+maxWait
     while isCasting or Fishing:GetState() ~= StateEnum.Idling do
         if not State.AutoFish or not bossCharacter() then return false end
-        if not waitUntilIdle and os.clock()>deadline then return false end
+        if os.clock()>deadline then
+            -- FishingController ở một số bản có FishCancel; gọi có điều kiện, không phụ thuộc bắt buộc.
+            pcall(function()
+                if Fishing.FishCancel and Fishing.FishCancel.Fire then Fishing.FishCancel:Fire() end
+            end)
+            isCasting=false
+            local cancelDeadline=os.clock()+3
+            while State.AutoFish and bossCharacter() and Fishing:GetState() ~= StateEnum.Idling
+                and os.clock()<cancelDeadline do task.wait(0.1) end
+            return Fishing:GetState()==StateEnum.Idling
+        end
         task.wait(0.1)
     end
     return true
@@ -1406,6 +1524,14 @@ local function bossFace(position)
         if (target-root.Position).Magnitude>0.1 then root.CFrame=CFrame.lookAt(root.Position,target) end
     end
 end
+local function bossFishingHoldPart()
+    local cars=workspace:FindFirstChild("Cars")
+    local car=cars and cars:FindFirstChild(tostring(LocalPlayer.UserId))
+    local visual=car and car:FindFirstChild("Visual")
+    local hold=visual and visual:FindFirstChild("one")
+    return hold and hold:IsA("BasePart") and hold or nil
+end
+
 local function bossFight(fx, spot, token)
     bossStatus("Đang tới vùng boss")
     local region=bossRegionForFX(fx)
@@ -1432,6 +1558,33 @@ local function bossFight(fx, spot, token)
     Boss.catchBaseline = {}
     for uid in pairs(bossInventory()) do Boss.catchBaseline[uid] = true end
     bossFace(fx.Position)
+
+    -- Giữ nhân vật trên Visual.one trong toàn bộ lượt câu boss.
+    -- Khi bossFight kết thúc connection sẽ ngắt và nhân vật trở lại bình thường.
+    local holdActive=true
+    local holdConnection=RunService.PreSimulation:Connect(function()
+        if not holdActive then return end
+        local root,humanoid=bossCharacter()
+        local hold=bossFishingHoldPart()
+        if not root or not humanoid or not hold or humanoid.SeatPart then return end
+        local y=hold.Size.Y*0.5 + humanoid.HipHeight + root.Size.Y*0.5 + 0.15
+        local position=hold.CFrame:PointToWorldSpace(Vector3.new(0,y,0))
+        local target=fx and fx:IsDescendantOf(workspace) and fx.Position
+        if target then
+            local flatTarget=Vector3.new(target.X,position.Y,target.Z)
+            if (flatTarget-position).Magnitude>0.05 then
+                root.CFrame=CFrame.lookAt(position,flatTarget)
+            else
+                root.CFrame=CFrame.new(position)*root.CFrame.Rotation
+            end
+        else
+            root.CFrame=CFrame.new(position)*root.CFrame.Rotation
+        end
+        root.AssemblyLinearVelocity=Vector3.zero
+        root.AssemblyAngularVelocity=Vector3.zero
+        humanoid:Move(Vector3.zero)
+    end)
+
     Boss.fishing = true
     pendingCast, nextCastAt = true, os.clock()
     bossStatus("Đang câu boss")
@@ -1471,12 +1624,18 @@ local function bossFight(fx, spot, token)
         end
         task.wait(0.2)
     end
-    Boss.fishing = false
     if not Boss.weather then
         bossStatus("Hết thời tiết, chờ thu cần")
     end
-    -- Keep pulling/using skills until Idling; never move away mid-fight.
-    if not bossDrain(true) then error("Đã tắt Auto Fishing hoặc mất nhân vật; chưa di chuyển") end
+    -- Giữ vị trí cho tới khi lượt câu thực sự về Idling rồi mới thả khóa.
+    if not bossDrain(true) then
+        holdActive=false
+        if holdConnection then holdConnection:Disconnect() end
+        error("Đã tắt Auto Fishing hoặc mất nhân vật; chưa di chuyển")
+    end
+    holdActive=false
+    if holdConnection then holdConnection:Disconnect() end
+    Boss.fishing = false
     Boss.target = nil
     Boss.catchBaseline = nil
     return true
@@ -1489,26 +1648,58 @@ local function bossReturn()
     if not bossDrain(true) then return false end
     local token = Boss.cancel
     local originalPosition = home.cf.Position
+    local returnDeadline = os.clock()+90
     local parkingPosition=Boat.returnDock or (Boat.dock and Boat.dock.Position)
     if parkingPosition then
-        bossStatus("Lái xe về điểm đỗ ngoài bãi")
-        if not boatDrive(parkingPosition,token,true) then return false end
-        boatBrake()
-        local root,humanoid=bossCharacter()
-        if not root then return false end
-        humanoid.Sit=false
-        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-        task.wait(0.5)
-        if humanoid.SeatPart then
-            root.CFrame=Boat.seat.CFrame*CFrame.new(0,6,0)
-            task.wait(0.3)
+        -- Nếu bị văng khỏi ghế/mất điều khiển trên đường về, tự bind + ngồi lại xe rồi đi tiếp.
+        local droveBack=false
+        for attempt=1,3 do
+            if not bossAllowed(token,true) then return false end
+            bossStatus(attempt==1 and "Lái xe về điểm đỗ ngoài bãi"
+                or ("Mất xe/ghế; thử lên lại xe ("..attempt.."/3)"))
+
+            if (not Boat.model or not Boat.model.Parent or not Boat.seat or not Boat.seat.Parent) then
+                boatBind()
+            end
+
+            if Boat.model and Boat.model.Parent and Boat.seat and Boat.seat.Parent then
+                if boatDrive(parkingPosition,token,true) then
+                    droveBack=true
+                    break
+                end
+            end
+
+            -- boatDrive có thể dừng ngay khi Humanoid rời DSeat. Re-bind để lần sau
+            -- boatSit() kéo nhân vật trở lại ghế của chính xe hiện tại.
+            boatBrake()
+            task.wait(0.4)
+            boatBind()
         end
-        if humanoid.SeatPart then return false end
-        boatRelease()
+
+        if droveBack then
+            boatBrake()
+            local root,humanoid=bossCharacter()
+            if not root then return false end
+            humanoid.Sit=false
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            task.wait(0.5)
+            if humanoid.SeatPart and Boat.seat and Boat.seat.Parent then
+                root.CFrame=Boat.seat.CFrame*CFrame.new(0,6,0)
+                task.wait(0.3)
+            end
+            if humanoid.SeatPart then return false end
+            boatRelease()
+        else
+            -- Không để lỗi xe khóa vĩnh viễn luồng quay về. Giải phóng xe và thử
+            -- quay về FishingHome bằng movement mode hiện tại.
+            boatRelease()
+            bossStatus("Không giữ được xe; thử quay thẳng về điểm câu")
+        end
     end
     bossStatus("Đã đỗ xe; quay lại điểm câu ban đầu")
 
     while bossAllowed(token,true) do
+        if os.clock()>returnDeadline then return false end
         local root = bossCharacter()
         if not root then return false end
         local distance = (root.Position-originalPosition).Magnitude
@@ -1536,7 +1727,7 @@ local function bossReturn()
 
         local waitUntil = os.clock()+RETURN_RETRY_SECONDS
         bossStatus("Chưa đúng điểm câu gốc; kiểm tra lại sau " .. RETURN_RETRY_SECONDS .. "s")
-        while os.clock() < waitUntil do
+        while os.clock() < waitUntil and os.clock() < returnDeadline do
             if not bossAllowed(token,true) then return false end
             root = bossCharacter()
             if root and (root.Position-originalPosition).Magnitude <= 0.5 then
@@ -1553,21 +1744,95 @@ local function bossReturn()
     end
     return false
 end
-local function bossFinishReturn(weatherKey)
-    Boss.returning=true
-    Boss.fault=false
-    local ok,returned=pcall(bossReturn)
+local function bossHardRecoverHome(reason)
+    local home=Boss.home
+    bossStopMove()
+    boatRelease()
+    local root,humanoid=bossCharacter()
+    if home and root then
+        root.CFrame=home.cf
+        root.AssemblyLinearVelocity=Vector3.zero
+        root.AssemblyAngularVelocity=Vector3.zero
+        if humanoid then
+            humanoid.Sit=false
+            humanoid:Move(Vector3.zero)
+        end
+        -- FishingHome là điểm gốc bền của Auto Fish; giữ nguyên nếu đã có.
+        if not FishingHome then FishingHome={cf=home.cf,position=home.cf.Position} end
+    end
+    Boss.busy=false
+    Boss.busySince=nil
     Boss.returning=false
-    if ok and returned then
-        Boss.busy=false
-        Boss.completedWeather=weatherKey
+    Boss.fishing=false
+    Boss.patrolling=false
+    Boss.target=nil
+    Boss.home=nil
+    Boss.caught=nil
+    Boss.catchBaseline=nil
+    Boss.expectedFish=nil
+    Boss.detected=nil
+    Boss.patrolDestination=nil
+    Boss.skipDestination=nil
+    Boss.fault=false
+    Boss.returnFailures=0
+    if State.AutoFish then
+        pendingCast=true
+        nextCastAt=os.clock()+1
+        bossStatus(reason or "Đã phục hồi về chế độ câu thường")
     else
-        Boss.fault=true
-        bossStopMove()
-        boatBrake()
-        bossStatus(Boat.lastFailure and ("Xe dừng: "..Boat.lastFailure) or "Chưa về được, thử quay về")
+        bossStatus("Auto Boss đã dừng")
     end
 end
+
+local function bossFinishReturn(weatherKey)
+    if Boss.returning then return end
+    Boss.returning=true
+    Boss.fault=false
+    Boss.returnFailures=Boss.returnFailures or 0
+
+    local returned=false
+    local lastFailure
+    for attempt=1,3 do
+        if not State.AutoFish then break end
+        local ok,result=pcall(bossReturn)
+        if ok and result then
+            returned=true
+            break
+        end
+        lastFailure = ok and "return false" or tostring(result)
+        Boss.returnFailures=Boss.returnFailures+1
+        bossStopMove()
+        boatBrake()
+        if attempt<3 and State.AutoFish then
+            bossStatus("Quay về lỗi; tự thử lại "..tostring(attempt+1).."/3")
+            task.wait(1)
+        end
+    end
+
+    Boss.returning=false
+    if returned then
+        Boss.busy=false
+        Boss.busySince=nil
+        Boss.fault=false
+        Boss.returnFailures=0
+        Boss.completedWeather=weatherKey
+        return
+    end
+
+    if not State.AutoFish then
+        bossHardRecoverHome("Auto Boss đã dừng")
+        return
+    end
+
+    -- Không bao giờ để Boss.busy khóa Auto Fish cả đêm. Sau 3 lần return lỗi,
+    -- phục hồi cứng về home rồi giải phóng toàn bộ session boss.
+    Boss.fault=true
+    bossStatus(Boat.lastFailure and ("Return lỗi: "..Boat.lastFailure.."; phục hồi điểm câu")
+        or ("Return lỗi; phục hồi điểm câu"))
+    task.wait(0.3)
+    bossHardRecoverHome("Đã tự phục hồi sau lỗi quay về")
+end
+
 local function bossRun()
     local root = bossCharacter()
     local originalIsland = bossCurrentIsland()
@@ -1886,6 +2151,7 @@ task.spawn(function()
         if State.AutoFish and State.AutoBoss and Boss.weather and not Boss.busy and not isSelling and not manualTravelBusy
             and not Boss.home and Boss.completedWeather~=Boss.weatherKey then
             Boss.busy = true
+            Boss.busySince = os.clock()
             local weatherKey = Boss.weatherKey
             local ran, failure = xpcall(bossRun,tostring)
             Boss.fishing = false
@@ -1911,7 +2177,7 @@ end)
 -- Giám sát điểm câu gốc trong suốt phiên Auto Fishing.
 -- Không can thiệp khi đang bán cá, Auto Boss, manual travel hoặc có tác vụ di chuyển.
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(0.1) do
         pcall(restoreFishingHomeIfDrifted)
     end
 end)
@@ -1957,6 +2223,23 @@ end
 local function CastOnce()
     if not State.AutoFish or not bossCanCast() or isCasting or isSelling or Fishing:GetState() ~= StateEnum.Idling then
         return
+    end
+
+    -- Trước mỗi lần câu thường, xác nhận nhân vật vẫn đúng điểm câu gốc.
+    -- Nếu server vừa correction làm lệch vị trí thì kéo về trước, chưa cast ở frame này.
+    if not Boss.busy and FishingHome then
+        local root, humanoid = bossCharacter()
+        if root and (root.Position - FishingHome.position).Magnitude > 0.35 then
+            cancelMovementTween()
+            currentPathId = currentPathId + 1
+            root.CFrame = FishingHome.cf
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            if humanoid then humanoid:Move(Vector3.zero) end
+            pendingCast = true
+            nextCastAt = os.clock() + 0.3
+            return
+        end
     end
 
     if Boss.busy and bagFull() then return end
@@ -2109,6 +2392,35 @@ task.spawn(function()
     end
 end)
 
+-- Watchdog chống state zombie. Chỉ can thiệp các trạng thái bất khả thi/kéo dài bất thường.
+task.spawn(function()
+    while task.wait(2) do
+        pcall(function()
+            if not State.AutoFish then return end
+
+            -- busy nhưng không còn home/target/fishing/returning: worker đã chết giữa chừng.
+            if Boss.busy and not Boss.returning and not Boss.fishing and not Boss.home then
+                Boss.busySince=Boss.busySince or os.clock()
+                if os.clock()-Boss.busySince>10 then
+                    bossHardRecoverHome("Watchdog đã xóa phiên boss bị kẹt")
+                    return
+                end
+            end
+
+            -- Auto Boss đã tắt nhưng session boss vẫn giữ busy mà không quay về.
+            if Boss.busy and not State.AutoBoss and Boss.home and not Boss.returning and not Boss.fishing then
+                bossFinishReturn(Boss.weatherKey)
+                return
+            end
+
+            -- Không có tác vụ di chuyển/boss/bán mà điểm câu bị lệch: phục hồi trước khi cast.
+            if not Boss.busy and not manualTravelBusy and not isSelling and FishingHome then
+                restoreFishingHomeIfDrifted()
+            end
+        end)
+    end
+end)
+
 -- GIAO DIỆN: câu cá, di chuyển, gacha, Discord
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/UiRoblox.lua"))()
 
@@ -2133,15 +2445,41 @@ local MainTab = Window:Tab({Title = "Câu cá", Icon = "star"}) do
         Callback = function(v)
             State.AutoFish = v
             if v then
+                -- Bật lại Auto Fish luôn bắt đầu từ session sạch nếu trước đó có lỗi runtime.
+                if Boss.busy and not Boss.returning and not Boss.fishing then
+                    Boss.busy=false
+                    Boss.busySince=nil
+                    Boss.home=nil
+                    Boss.target=nil
+                    Boss.fault=false
+                    boatRelease()
+                end
+                isCasting=false
+                isSelling=false
                 captureFishingHome(true)
                 pendingCast = true
                 nextCastAt = os.clock()
             else
+                -- Hủy sạch mọi phiên Auto Boss/return cũ. Trước đây Boss.busy có thể
+                -- còn true sau lỗi rơi khỏi xe và bossCanCast() sẽ khóa Auto Fish mãi.
                 Boss.cancel = Boss.cancel + 1
+                Boss.busy = false
+                Boss.busySince = nil
+                Boss.returning = false
                 Boss.fishing = false
+                Boss.patrolling = false
                 Boss.target = nil
                 Boss.home = nil
+                Boss.caught = nil
+                Boss.catchBaseline = nil
+                Boss.expectedFish = nil
+                Boss.detected = nil
+                Boss.patrolDestination = nil
+                Boss.skipDestination = nil
                 Boss.fault = false
+                isCasting = false
+                isSelling = false
+                pendingCast = false
                 bossStopMove()
                 boatRelease()
                 FishingHome = nil
@@ -2197,10 +2535,18 @@ local MainTab = Window:Tab({Title = "Câu cá", Icon = "star"}) do
     MainTab:Button({
         Title = "Thử quay về",
         Callback = function()
-            if not Boss.fault or not Boss.home or not State.AutoFish then return end
+            -- Cho phép cứu phiên return chỉ cần còn home; không phụ thuộc Boss.fault.
+            if not Boss.home or not State.AutoFish then return end
+            Boss.cancel=Boss.cancel+1
+            bossStopMove()
+            boatBrake()
             Boss.fault=false
             Boss.busy=true
-            task.spawn(function() bossFinishReturn(Boss.weatherKey) end)
+            Boss.returning=false
+            task.spawn(function()
+                task.wait(0.2) -- cho worker/drive cũ nhận cancel trước
+                bossFinishReturn(Boss.weatherKey)
+            end)
         end
     })
 
