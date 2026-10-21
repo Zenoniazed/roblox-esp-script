@@ -837,7 +837,7 @@ local Library = loadstring(game:HttpGet(
 
 local Window = Library:Window({
     Title  = "HEAVYWEIGHT_FISHING",
-    Desc   = "Auto Farm & Utilities",
+    Desc   = "Con Cu Màu Đen",
     Theme  = "Amethyst",
     Config = { Keybind = Enum.KeyCode.K, Size = UDim2.new(0,520,0,490) },
    Config = {
