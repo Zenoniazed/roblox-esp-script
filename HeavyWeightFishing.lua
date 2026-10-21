@@ -838,6 +838,7 @@ local Library = loadstring(game:HttpGet(
 local Window = Library:Window({
     Title  = "HEAVYWEIGHT_FISHING",
     Desc   = "Con Cu Màu Đen",
+    Icon = 71051887760757,
     Theme  = "Amethyst",
    Config = {
             Keybind = Enum.KeyCode.K,
