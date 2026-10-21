@@ -831,13 +831,24 @@ local function processDailyQuestClaims()
 end
 
 --// UI INITIALIZATION
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/Framework.lua"))()
+local Library = loadstring(game:HttpGet(
+        "https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/UiRoblox.lua"
+    ))()
+
 local Window = Library:Window({
-    Title  = "FISHING MASTER PREMIUM V4",
+    Title  = "HEAVYWEIGHT_FISHING",
     Desc   = "Auto Farm & Utilities",
     Theme  = "Amethyst",
     Config = { Keybind = Enum.KeyCode.K, Size = UDim2.new(0,520,0,490) },
-    CloseUIButton = { Enabled = true, Text = "CLOSE" }
+   Config = {
+            Keybind = Enum.KeyCode.K,
+            Size = UDim2.new(0, 520, 0, 260)
+        },
+
+        CloseUIButton = {
+            Enabled = true,
+            Icon = 71051887760757
+        }
 })
 
 local TabFarm = Window:Tab({ Title = "Main Farm", Icon = "fish" })
