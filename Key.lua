@@ -268,8 +268,3 @@ end
 --====================================================
 
 print("🎉 KEY HỢP LỆ → LOAD SCRIPT CHÍNH!")
-
-loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/FishingMaster.lua",
-    true
-))()
