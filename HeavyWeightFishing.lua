@@ -841,7 +841,7 @@ local Window = Library:Window({
     Theme  = "Amethyst",
    Config = {
             Keybind = Enum.KeyCode.K,
-            Size = UDim2.new(0, 520, 0, 260)
+            Size = UDim2.new(0, 520, 0, 490)
         },
 
         CloseUIButton = {
