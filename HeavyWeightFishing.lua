@@ -40,6 +40,9 @@ local state = {
     FishFilterEnabled = false,
     SelectedFishFilter = {},
     SelectedFishList = {},
+    -- Settings (FPS & Graphics)
+    HighFPS = false,
+    GraphicsLevel = "Tắt",
 }
 
 -- Cờ điều khiển nội bộ cho Quest
@@ -846,6 +849,138 @@ local function processDailyQuestClaims()
     end
 end
 
+--// HỆ THỐNG TỐI ƯU FPS & GIẢM ĐỒ HỌA
+local Lighting = game:GetService("Lighting")
+local graphicsConn = nil
+
+local function setFPSBoost(enabled)
+    pcall(function()
+        if setfpscap then
+            if enabled then
+                setfpscap(240)
+            else
+                setfpscap(60)
+            end
+        end
+    end)
+    pcall(function()
+        if enabled then
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        else
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+        end
+    end)
+end
+
+local function applyGraphicsReduction(level)
+    if graphicsConn then
+        graphicsConn:Disconnect()
+        graphicsConn = nil
+    end
+
+    if level == "Tắt" then
+        pcall(function()
+            Lighting.GlobalShadows = true
+            Lighting.FogEnd = 100000
+            for _, eff in ipairs(Lighting:GetChildren()) do
+                if eff:IsA("PostEffect") or eff:IsA("Atmosphere") then
+                    eff.Enabled = true
+                end
+            end
+            if workspace.Terrain then
+                workspace.Terrain.WaterWaveSize = 0.15
+                workspace.Terrain.WaterWaveSpeed = 10
+                workspace.Terrain.WaterReflectance = 1
+                workspace.Terrain.Decoration = true
+            end
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+        end)
+        return
+    end
+
+    -- 1. Cấp độ "Trung bình": Tắt bóng, khử sương mù, tắt hiệu ứng chói/mờ, giảm sóng nước
+    pcall(function()
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        for _, eff in ipairs(Lighting:GetChildren()) do
+            if eff:IsA("BloomEffect") or eff:IsA("SunRaysEffect") or eff:IsA("DepthOfFieldEffect") or eff:IsA("BlurEffect") then
+                eff.Enabled = false
+            end
+        end
+        if workspace.Terrain then
+            workspace.Terrain.WaterWaveSize = 0
+            workspace.Terrain.WaterWaveSpeed = 0
+            workspace.Terrain.WaterReflectance = 0
+        end
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    end)
+
+    -- 2. Cấp độ "Cao": Thêm tắt khí quyển, tắt khói/lửa/tia sáng, chuyển vật liệu Plastic, bỏ đổ bóng vật thể
+    -- 3. Cấp độ "Cực cao": Tắt toàn bộ Particle/Trail/Beam/Decal/Texture, chuyển phẳng SmoothPlastic tuyệt đối
+    if level == "Cao" or level == "Cực cao" then
+        pcall(function()
+            for _, eff in ipairs(Lighting:GetChildren()) do
+                if eff:IsA("PostEffect") or eff:IsA("Atmosphere") then
+                    eff.Enabled = false
+                end
+            end
+            if workspace.Terrain then
+                workspace.Terrain.Decoration = false
+            end
+        end)
+
+        local function optimizeObj(v)
+            pcall(function()
+                if v:IsA("BasePart") and not v:IsDescendantOf(player.Character or game) then
+                    v.CastShadow = false
+                    v.Reflectance = 0
+                    if level == "Cực cao" then
+                        v.Material = Enum.Material.SmoothPlastic
+                    elseif level == "Cao" and v.Material ~= Enum.Material.SmoothPlastic then
+                        v.Material = Enum.Material.Plastic
+                    end
+                elseif v:IsA("Decal") or v:IsA("Texture") then
+                    if level == "Cực cao" then
+                        v.Transparency = 1
+                    end
+                elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") or v:IsA("Highlight") then
+                    if level == "Cực cao" then
+                        v.Enabled = false
+                    elseif level == "Cao" and (v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles")) then
+                        v.Enabled = false
+                    end
+                end
+            end)
+        end
+
+        for _, v in ipairs(workspace:GetDescendants()) do
+            optimizeObj(v)
+        end
+
+        graphicsConn = workspace.DescendantAdded:Connect(function(v)
+            if _G.FishingMasterSession ~= currentSession then
+                if graphicsConn then graphicsConn:Disconnect() end
+                return
+            end
+            task.wait()
+            optimizeObj(v)
+        end)
+    end
+end
+
+-- Tự động áp dụng cài đặt lưu từ trước nếu có
+if state.HighFPS then
+    task.spawn(function()
+        setFPSBoost(true)
+    end)
+end
+if state.GraphicsLevel and state.GraphicsLevel ~= "Tắt" then
+    task.spawn(function()
+        task.wait(1.5)
+        applyGraphicsReduction(state.GraphicsLevel)
+    end)
+end
+
 --// UI INITIALIZATION
 local Library = loadstring(game:HttpGet(
         "https://raw.githubusercontent.com/Zenoniazed/roblox-esp-script/main/UiRoblox.lua"
@@ -870,6 +1005,7 @@ local Window = Library:Window({
 local TabFarm = Window:Tab({ Title = "Main Farm", Icon = "fish" })
 local TabQuest = Window:Tab({ Title = "Auto Quest", Icon = "clipboard-list" })
 local TabTP = Window:Tab({ Title = "Teleport", Icon = "map-pin" })
+local TabSettings = Window:Tab({ Title = "Cài Đặt", Icon = "settings" })
 
 --// FARMING TAB
 TabFarm:Toggle({
@@ -1133,6 +1269,41 @@ for _, islandName in ipairs(OrderedIslandList) do
         end
     })
 end
+
+--// SETTINGS TAB (FPS & ĐỒ HỌA)
+TabSettings:Toggle({
+    Title = "Bật FPS Cao & Giảm Lag (Unlock Max FPS)",
+    Value = state.HighFPS,
+    Callback = function(v)
+        state.HighFPS = v
+        save()
+        setFPSBoost(v)
+    end
+})
+
+local graphicsLevels = {"Tắt", "Trung bình", "Cao", "Cực cao"}
+TabSettings:Dropdown({
+    Title = "Giảm Đồ Họa (3 Cấp Độ Anti-Lag)",
+    Multi = false,
+    List = graphicsLevels,
+    Value = state.GraphicsLevel or "Tắt",
+    Callback = function(selected)
+        local val = type(selected) == "table" and selected[1] or selected
+        if table.find(graphicsLevels, val) then
+            state.GraphicsLevel = val
+            save()
+            applyGraphicsReduction(val)
+        end
+    end
+})
+
+TabSettings:Button({
+    Title = "Làm Mới / Áp Dụng Lại Cài Đặt Đồ Họa",
+    Callback = function()
+        setFPSBoost(state.HighFPS)
+        applyGraphicsReduction(state.GraphicsLevel or "Tắt")
+    end
+})
 
 --// LOOPS & LOGIC
 
