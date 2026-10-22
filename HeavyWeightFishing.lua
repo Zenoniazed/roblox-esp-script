@@ -1205,10 +1205,10 @@ task.spawn(function()
                         if state.AutoSkill then
                             for _, key in ipairs(skillKeys) do
                                 skillRem:FireServer(key)
-                                task.wait(0.05)
+                                task.wait(0.2)
                             end
                         else
-                            task.wait(0.2)
+                            task.wait(0.5)
                         end
                     end
                 -- Quá 10s không có cá -> Đổi điểm đứng khác (chỉ khi làm Quest)
