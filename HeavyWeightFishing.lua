@@ -48,8 +48,6 @@ local state = {
     SelectedWeatherBoss = "Flame Fish",
     SelectedWeatherBossList = {"Flame Fish"},
     SelectedWeatherBosses = {["Flame Fish"] = true},
-    -- Settings (FPS & Graphics)
-    HighFPS = false,
     GraphicsLevel = "Tắt",
 }
 
@@ -938,28 +936,10 @@ local function processDailyQuestClaims()
     end
 end
 
---// HỆ THỐNG TỐI ƯU FPS & GIẢM ĐỒ HỌA
+--// HỆ THỐNG TỐI ƯU GIẢM ĐỒ HỌA
 local Lighting = game:GetService("Lighting")
 local graphicsConn = nil
 
-local function setFPSBoost(enabled)
-    pcall(function()
-        if setfpscap then
-            if enabled then
-                setfpscap(240)
-            else
-                setfpscap(60)
-            end
-        end
-    end)
-    pcall(function()
-        if enabled then
-            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-        else
-            settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
-        end
-    end)
-end
 
 local function isProtectedInstance(v)
     if not v or not v.Parent then return true end
@@ -1161,12 +1141,6 @@ local function applyGraphicsReduction(level)
     end
 end
 
--- Tự động áp dụng cài đặt lưu từ trước nếu có
-if state.HighFPS then
-    task.spawn(function()
-        setFPSBoost(true)
-    end)
-end
 if state.GraphicsLevel and state.GraphicsLevel ~= "Tắt" then
     task.spawn(function()
         task.wait(1.5)
@@ -1721,17 +1695,6 @@ TabTP:Button({
     end
 })
 
---// SETTINGS TAB (FPS & ĐỒ HỌA)
-TabSettings:Section({Title = "FPS"})
-TabSettings:Toggle({
-    Title = "Bật FPS Cao & Giảm Lag",
-    Value = state.HighFPS,
-    Callback = function(v)
-        state.HighFPS = v
-        save()
-        setFPSBoost(v)
-    end
-})
 
 local graphicsLevels = {"Tắt", "Trung bình", "Cao", "Cực cao", "Siêu cực đại"}
 TabSettings:Dropdown({
@@ -1752,7 +1715,6 @@ TabSettings:Dropdown({
 TabSettings:Button({
     Title = "Làm Mới / Áp Dụng Lại Cài Đặt Đồ Họa",
     Callback = function()
-        setFPSBoost(state.HighFPS)
         applyGraphicsReduction(state.GraphicsLevel or "Tắt")
     end
 })
