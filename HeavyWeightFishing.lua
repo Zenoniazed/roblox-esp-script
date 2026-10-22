@@ -22,6 +22,9 @@ local mainGui = pGui:WaitForChild("MainGui")
 local state = {
     AutoFishing = false,
     AutoSkill = true,
+    AutoHealSkill = false,
+    HealSkillKey = "Z",
+    HealHPThreshold = 40,
     LockBar = true,
     MinigameMode = "Safe", -- "Safe" (An Toàn) hoặc "Fast" (Siêu Tốc)
     AutoRhythm = true,
@@ -40,16 +43,27 @@ local state = {
     FishFilterEnabled = false,
     SelectedFishFilter = {},
     SelectedFishList = {},
+    -- Weather Boss Hunter
+    AutoWeatherBoss = false,
+    SelectedWeatherBoss = "Flame Fish",
+    SelectedWeatherBossList = {"Flame Fish"},
+    SelectedWeatherBosses = {["Flame Fish"] = true},
     -- Settings (FPS & Graphics)
     HighFPS = false,
     GraphicsLevel = "Tắt",
 }
 
--- Cờ điều khiển nội bộ cho Quest
+-- Cờ điều khiển nội bộ cho Quest & Boss
 local ticketQuestWantsFishing = false
 local dailyQuestWantsFishing = false
 local essenceOrbWantsFishing = false
 local isInteractingNPC = false
+local weatherBossActive = false
+local weatherBossWantsFishing = false
+local weatherBossLastIsland = nil
+local currentHuntingBoss = nil
+local activeWeatherBossTargets = {}
+local setWeatherBossStatus = function(msg) end
 
 -- Bãi Boss mặc định
 local DEFAULT_BOSS_ISLAND = "Battlefield Isle"
@@ -89,6 +103,22 @@ end
 
 load()
 
+-- Đồng bộ danh sách Boss Thời Tiết (Hỗ trợ cấu hình cũ & đa chọn)
+if state.SelectedWeatherBossList and #state.SelectedWeatherBossList > 0 then
+    state.SelectedWeatherBosses = {}
+    for _, b in ipairs(state.SelectedWeatherBossList) do
+        state.SelectedWeatherBosses[b] = true
+    end
+    state.SelectedWeatherBoss = state.SelectedWeatherBossList[1]
+elseif state.SelectedWeatherBoss then
+    state.SelectedWeatherBossList = {state.SelectedWeatherBoss}
+    state.SelectedWeatherBosses = {[state.SelectedWeatherBoss] = true}
+else
+    state.SelectedWeatherBossList = {"Flame Fish"}
+    state.SelectedWeatherBosses = {["Flame Fish"] = true}
+    state.SelectedWeatherBoss = "Flame Fish"
+end
+
 --// DATABASE: VÙNG BIỂN & THỜI TIẾT
 local IslandFishDatabase = {
     ["Beginning Isle"] = {"Trout", "Arrogant Fish", "Catfish", "Crimson Carp", "Crimson Catfish", "Emerald Carp", "Golden Carp", "Platinum Carp", "Royal Carp", "Tilapia", "Volt Grass Carp", "Azure Carp"},
@@ -125,6 +155,62 @@ local WeatherFishDatabase = {
     ["Mirage Lanternfish"] = {Island = "Mistpeak Isle", Weather = "Foggy"},
     ["Mountain Dragonwhale"] = {Island = "Battlefield Isle", Weather = "Windy"},
 }
+
+local WeatherBossList = {}
+for fishName, _ in pairs(WeatherFishDatabase) do
+    table.insert(WeatherBossList, fishName)
+end
+table.sort(WeatherBossList)
+
+-- Hàm tìm boss phù hợp với thời tiết hiện tại trong danh sách đa chọn
+local function findMatchedWeatherBoss(currentServerWeather, currentIsland)
+    local selectedList = state.SelectedWeatherBossList or {}
+    if #selectedList == 0 and state.SelectedWeatherBoss then
+        selectedList = {state.SelectedWeatherBoss}
+    end
+
+    -- 1. Ưu tiên: Nếu đang ở một đảo săn boss và đảo đó vẫn có boss trùng thời tiết hiện tại -> Tiếp tục ở lại câu
+    if currentIsland then
+        for _, bossName in ipairs(selectedList) do
+            local info = WeatherFishDatabase[bossName]
+            if info and info.Island == currentIsland then
+                if string.find(string.lower(currentServerWeather), string.lower(info.Weather)) ~= nil then
+                    return bossName, info
+                end
+            end
+        end
+    end
+
+    -- 2. Tìm boss đầu tiên trong danh sách chọn trùng khớp với thời tiết hiện tại của server
+    for _, bossName in ipairs(selectedList) do
+        local info = WeatherFishDatabase[bossName]
+        if info then
+            if string.find(string.lower(currentServerWeather), string.lower(info.Weather)) ~= nil then
+                return bossName, info
+            end
+        end
+    end
+
+    return nil, nil
+end
+
+-- Hàm lấy tất cả các boss hợp lệ trên một hòn đảo theo thời tiết hiện tại
+local function getActiveBossTargetsOnIsland(islandName, currentServerWeather)
+    local targets = {}
+    local selectedList = state.SelectedWeatherBossList or {}
+    if #selectedList == 0 and state.SelectedWeatherBoss then
+        selectedList = {state.SelectedWeatherBoss}
+    end
+    for _, bossName in ipairs(selectedList) do
+        local info = WeatherFishDatabase[bossName]
+        if info and info.Island == islandName then
+            if string.find(string.lower(currentServerWeather), string.lower(info.Weather)) ~= nil then
+                targets[bossName] = true
+            end
+        end
+    end
+    return targets
+end
 
 -- Danh sách đảo hiển thị trên Dropdown theo thứ tự chuẩn
 local OrderedIslandList = {
@@ -187,6 +273,9 @@ end
 
 -- Bộ điều khiển quyết định khi nào ĐƯỢC PHÉP câu
 local function isFishingAllowed()
+    if state.AutoWeatherBoss and weatherBossActive then
+        return weatherBossWantsFishing
+    end
     if state.AutoEssenceOrb then
         return essenceOrbWantsFishing and not isInteractingNPC
     end
@@ -872,6 +961,68 @@ local function setFPSBoost(enabled)
     end)
 end
 
+local function isProtectedInstance(v)
+    if not v or not v.Parent then return true end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character and (v == plr.Character or v:IsDescendantOf(plr.Character)) then
+            return true
+        end
+    end
+    local npcFolder = workspace:FindFirstChild("NPC")
+    if npcFolder and (v == npcFolder or v:IsDescendantOf(npcFolder)) then return true end
+    local sp = workspace:FindFirstChild("Spawnpoint")
+    if sp and (v == sp or v:IsDescendantOf(sp)) then return true end
+    local fishes = workspace:FindFirstChild("Fishes")
+    if fishes and (v == fishes or v:IsDescendantOf(fishes)) then return true end
+    local boat = workspace:FindFirstChild("Boat")
+    if boat and (v == boat or v:IsDescendantOf(boat)) then return true end
+    if v:IsA("BasePart") and (v.Name == "Water" or v:GetAttribute("WaterType") or (v.Parent and v.Parent.Name == "Ocean")) then
+        return true
+    end
+    if v:IsA("Terrain") then
+        return true
+    end
+    return false
+end
+
+local function isDecorOrFoliage(v)
+    if isProtectedInstance(v) then return false end
+
+    local name = string.lower(v.Name)
+    -- Giữ an toàn cho toàn bộ đảo, mặt đất, bờ biển, đường đi, khu vực spawn
+    if string.find(name, "isle") or string.find(name, "island") or string.find(name, "ground") 
+        or string.find(name, "floor") or string.find(name, "shore") or string.find(name, "base") 
+        or string.find(name, "terrain") or string.find(name, "water") or string.find(name, "ocean")
+        or string.find(name, "spawn") or string.find(name, "sand") or string.find(name, "dirt") then
+        return false
+    end
+
+    local parentName = v.Parent and string.lower(v.Parent.Name) or ""
+    local checkParent = not (string.find(parentName, "isle") or string.find(parentName, "island") or string.find(parentName, "workspace"))
+
+    local keywords = {
+        "tree", "leaves", "leaf", "trunk", "branch", "bark", "wood",
+        "bush", "bushes", "plant", "plants", "grass", "flower", "flowers",
+        "foliage", "flora", "vegetation", "bamboo", "mushroom", "vine",
+        "decor", "decoration", "decorations", "prop", "props", "detail", "details",
+        "rock", "rocks", "stone", "boulder", "pebble", "pebbles",
+        "fence", "bench", "lamp", "lantern", "streetlamp", "torch", "statue",
+        "coral", "seaweed", "kelp", "grasspatch", "flowerbed", "clutter",
+        "house", "building", "roof", "pillar", "gate", "bridge", "barrel", "box", "crate"
+    }
+
+    for _, kw in ipairs(keywords) do
+        if string.find(name, kw) then
+            return true
+        end
+        if checkParent and string.find(parentName, kw) then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function applyGraphicsReduction(level)
     if graphicsConn then
         graphicsConn:Disconnect()
@@ -915,38 +1066,80 @@ local function applyGraphicsReduction(level)
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
     end)
 
-    -- 2. Cấp độ "Cao": Thêm tắt khí quyển, tắt khói/lửa/tia sáng, chuyển vật liệu Plastic, bỏ đổ bóng vật thể
-    -- 3. Cấp độ "Cực cao": Tắt toàn bộ Particle/Trail/Beam/Decal/Texture, chuyển phẳng SmoothPlastic tuyệt đối
-    if level == "Cao" or level == "Cực cao" then
+    -- 2. Cấp độ "Cao", "Cực cao", "Siêu cực đại"
+    if level == "Cao" or level == "Cực cao" or level == "Siêu cực đại" then
         pcall(function()
             for _, eff in ipairs(Lighting:GetChildren()) do
-                if eff:IsA("PostEffect") or eff:IsA("Atmosphere") then
+                if eff:IsA("PostEffect") or eff:IsA("Atmosphere") or eff:IsA("Clouds") then
                     eff.Enabled = false
                 end
             end
             if workspace.Terrain then
                 workspace.Terrain.Decoration = false
             end
+            if level == "Siêu cực đại" then
+                Lighting.Brightness = 1.5
+                Lighting.ClockTime = 14
+            end
         end)
 
         local function optimizeObj(v)
             pcall(function()
-                if v:IsA("BasePart") and not v:IsDescendantOf(player.Character or game) then
-                    v.CastShadow = false
-                    v.Reflectance = 0
-                    if level == "Cực cao" then
+                if isProtectedInstance(v) then return end
+
+                if level == "Siêu cực đại" then
+                    -- Xóa bỏ hoàn toàn cây cối, thực vật, hoa cỏ, đồ decor trang trí, đá sỏi
+                    if isDecorOrFoliage(v) then
+                        v:Destroy()
+                        return
+                    end
+
+                    -- Xóa bỏ PBR SurfaceAppearance và Decal/Texture
+                    if v:IsA("SurfaceAppearance") or v:IsA("Decal") or v:IsA("Texture") then
+                        v:Destroy()
+                        return
+                    end
+
+                    -- Xóa bỏ toàn bộ Particle, Beam, Trail, Smoke, Fire, Highlight
+                    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") or v:IsA("Highlight") then
+                        v:Destroy()
+                        return
+                    end
+
+                    -- Tắt âm thanh môi trường không cần thiết trong workspace
+                    if v:IsA("Sound") and not (v.Parent and v.Parent.Name == "SFX") then
+                        v.Volume = 0
+                    end
+
+                    -- Chuyển toàn bộ địa hình/vật thể còn lại về SmoothPlastic tối giản tuyệt đối, gỡ bỏ TextureID của MeshPart
+                    if v:IsA("BasePart") then
+                        v.CastShadow = false
+                        v.Reflectance = 0
                         v.Material = Enum.Material.SmoothPlastic
-                    elseif level == "Cao" and v.Material ~= Enum.Material.SmoothPlastic then
-                        v.Material = Enum.Material.Plastic
+                        if v:IsA("MeshPart") then
+                            v.TextureID = ""
+                        end
+                    elseif v:IsA("SpecialMesh") then
+                        v.TextureId = ""
                     end
-                elseif v:IsA("Decal") or v:IsA("Texture") then
-                    if level == "Cực cao" then
+                elseif level == "Cực cao" then
+                    if v:IsA("BasePart") then
+                        v.CastShadow = false
+                        v.Reflectance = 0
+                        v.Material = Enum.Material.SmoothPlastic
+                    elseif v:IsA("Decal") or v:IsA("Texture") then
                         v.Transparency = 1
-                    end
-                elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") or v:IsA("Highlight") then
-                    if level == "Cực cao" then
+                    elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") or v:IsA("Highlight") then
                         v.Enabled = false
-                    elseif level == "Cao" and (v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles")) then
+                    end
+                elseif level == "Cao" then
+                    if v:IsA("BasePart") then
+                        v.CastShadow = false
+                        v.Reflectance = 0
+                        if v.Material ~= Enum.Material.SmoothPlastic then
+                            v.Material = Enum.Material.Plastic
+                        end
+                    elseif v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
                         v.Enabled = false
                     end
                 end
@@ -1008,6 +1201,8 @@ local TabTP = Window:Tab({ Title = "Teleport", Icon = "map-pin" })
 local TabSettings = Window:Tab({ Title = "Cài Đặt", Icon = "settings" })
 
 --// FARMING TAB
+TabFarm:Section({Title = "Auto Fishing"})
+
 TabFarm:Toggle({
     Title = "Auto Fishing (Tự Cầm Cần & Câu Tại Chỗ)",
     Value = state.AutoFishing,
@@ -1023,6 +1218,46 @@ TabFarm:Toggle({
     Callback = function(v)
         state.AutoSkill = v
         save()
+    end
+})
+
+TabFarm:Toggle({
+    Title = "Bật Tự Động Hồi Máu (Auto Heal Skill)",
+    Desc = "Giữ chiêu hồi máu, chỉ dùng khi HP dưới % đã đặt",
+    Value = state.AutoHealSkill,
+    Callback = function(v)
+        state.AutoHealSkill = v
+        save()
+    end
+})
+
+TabFarm:Dropdown({
+    Title = "Chọn Chiêu Hồi Máu",
+    Multi = false,
+    List = {"Z", "X", "C", "V"},
+    Value = state.HealSkillKey or "Z",
+    Callback = function(selected)
+        local val = type(selected) == "table" and selected[1] or selected
+        if val and val ~= "" then
+            state.HealSkillKey = tostring(val)
+            save()
+        end
+    end
+})
+
+local hpThresholdList = {"20%", "30%", "40%", "50%", "60%", "70%", "80%"}
+TabFarm:Dropdown({
+    Title = "Ngưỡng Máu Hồi (% HP)",
+    Multi = false,
+    List = hpThresholdList,
+    Value = (state.HealHPThreshold or 40) .. "%",
+    Callback = function(selected)
+        local val = type(selected) == "table" and selected[1] or selected
+        local num = tonumber(string.match(tostring(val), "%d+"))
+        if num then
+            state.HealHPThreshold = num
+            save()
+        end
     end
 })
 
@@ -1081,7 +1316,95 @@ TabFarm:Dropdown({
     end
 })
 
--- MỤC CẤU HÌNH MINI GAME & CHẾ ĐỘ
+TabFarm:Section({Title = "Săn Boss Thời Tiết"})
+
+local WeatherBossStatusLabel = TabFarm:Label({
+    Title = "Trạng Thái Boss Thời Tiết",
+    Desc = "Chưa kích hoạt"
+})
+
+setWeatherBossStatus = function(msg)
+    if WeatherBossStatusLabel and WeatherBossStatusLabel.SetDesc then
+        WeatherBossStatusLabel:SetDesc(msg)
+    end
+end
+
+TabFarm:Toggle({
+    Title = "Bật Săn Boss Thời Tiết",
+    Value = state.AutoWeatherBoss,
+    Callback = function(v)
+        state.AutoWeatherBoss = v
+        save()
+        if not v then
+            setWeatherBossStatus("🔴 Đã tắt săn boss thời tiết.")
+        else
+            local list = state.SelectedWeatherBossList or {}
+            if #list > 1 then
+                setWeatherBossStatus("🟢 Đã bật săn " .. #list .. " boss thời tiết mục tiêu.")
+            elseif #list == 1 then
+                local bName = list[1]
+                local bInfo = WeatherFishDatabase[bName]
+                if bInfo then
+                    setWeatherBossStatus("🎯 Mục tiêu: " .. bName .. " | " .. bInfo.Island .. " (" .. bInfo.Weather .. ")")
+                else
+                    setWeatherBossStatus("🟢 Đã bật săn boss: " .. bName)
+                end
+            else
+                setWeatherBossStatus("🟢 Đã bật săn boss thời tiết. (Hãy chọn ít nhất 1 boss)")
+            end
+        end
+    end
+})
+
+TabFarm:Dropdown({
+    Title = "Chọn Boss Thời Tiết (Đa Chọn)",
+    Multi = true,
+    List = WeatherBossList,
+    Value = state.SelectedWeatherBossList or {"Flame Fish"},
+    Callback = function(selected)
+        local bossMap = {}
+        local bossArr = {}
+        if type(selected) == "table" then
+            for k, v in pairs(selected) do
+                if type(k) == "string" and v == true then
+                    bossMap[k] = true
+                    table.insert(bossArr, k)
+                elseif type(v) == "string" then
+                    bossMap[v] = true
+                    table.insert(bossArr, v)
+                end
+            end
+        elseif type(selected) == "string" and selected ~= "" then
+            bossMap[selected] = true
+            table.insert(bossArr, selected)
+        end
+
+        state.SelectedWeatherBosses = bossMap
+        state.SelectedWeatherBossList = bossArr
+        if #bossArr > 0 then
+            state.SelectedWeatherBoss = bossArr[1]
+        else
+            state.SelectedWeatherBoss = nil
+        end
+        save()
+
+        if #bossArr == 0 then
+            setWeatherBossStatus("⚠️ Chưa chọn boss thời tiết nào.")
+        elseif #bossArr == 1 then
+            local bInfo = WeatherFishDatabase[bossArr[1]]
+            if bInfo then
+                setWeatherBossStatus("🎯 Mục tiêu: " .. bossArr[1] .. " | " .. bInfo.Island .. " (" .. bInfo.Weather .. ")")
+            else
+                setWeatherBossStatus("🎯 Đã chọn: " .. bossArr[1])
+            end
+        else
+            setWeatherBossStatus("🎯 Đã chọn " .. #bossArr .. " boss thời tiết mục tiêu.")
+        end
+    end
+})
+
+TabFarm:Section({Title = "Minigame"})
+
 TabFarm:Dropdown({
     Title = "Chế Độ Boss Minigame (Rhythm & Phase 2)",
     Multi = false,
@@ -1133,7 +1456,7 @@ TabFarm:Toggle({
         save()
     end
 })
-
+TabFarm:Section({Title = "Auto Sell"})
 TabFarm:Toggle({
     Title = "Auto Sell All (10s)",
     Value = state.AutoSell,
@@ -1155,7 +1478,7 @@ local DailyStatusLabel = TabQuest:Label({
 })
 
 local EssenceStatusLabel = TabQuest:Label({
-    Title = "Tiến Trình Essence Orb (Zeng Tianguo)",
+    Title = "Tiến Trình Essence Orb",
     Desc = "Đang chờ..."
 })
 
@@ -1177,6 +1500,7 @@ local function setEssenceStatus(msg)
     end
 end
 
+TabQuest:Section({Title = "Ticket Quest"})
 TabQuest:Dropdown({
     Title = "Chọn chế độ Ticket Quest",
     Multi = false,
@@ -1208,7 +1532,7 @@ TabQuest:Toggle({
     end
 })
 
-
+TabQuest:Section({Title = "Daily Quest"})
 TabQuest:Toggle({
     Title = "Bật Auto Daily Quest",
     Value = state.AutoDailyQuest,
@@ -1221,7 +1545,7 @@ TabQuest:Toggle({
         end
     end
 })
-
+TabQuest:Section({Title = "Essence Orb"})
 TabQuest:Toggle({
     Title = "Bật Auto Essence Orb",
     Value = state.AutoEssenceOrb,
@@ -1235,7 +1559,7 @@ TabQuest:Toggle({
     end
 })
 
-
+TabQuest:Section({Title = "Position Farming"})
 TabQuest:Dropdown({
     Title = "Chọn đảo để Farm",
     Multi = false,
@@ -1260,19 +1584,147 @@ TabQuest:Button({
         end
     end
 })
+
 --// TELEPORT TAB
-for _, islandName in ipairs(OrderedIslandList) do
-    TabTP:Button({
-        Title = "Bay tới: " .. islandName,
-        Callback = function()
-            teleportToIslandSpawn(islandName)
-        end
-    })
+local function findNPCInstance(npcName)
+    local npcFolder = workspace:FindFirstChild("NPC")
+    if npcFolder then
+        local target = npcFolder:FindFirstChild(npcName, true)
+        if target then return target end
+    end
+    return workspace:FindFirstChild(npcName, true)
 end
 
+local function teleportToNPC(npcName)
+    local target = findNPCInstance(npcName)
+    local char = getCharacter()
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    local hrp = char.HumanoidRootPart
+
+    if target then
+        local targetPos = nil
+        if target:IsA("Model") then
+            local primary = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart") or target:FindFirstChild("Torso") or target:FindFirstChild("UpperTorso") or target:FindFirstChildWhichIsA("BasePart")
+            if primary then
+                targetPos = primary.Position
+            else
+                local cf, _ = target:GetBoundingBox()
+                targetPos = cf.Position
+            end
+        elseif target:IsA("BasePart") then
+            targetPos = target.Position
+        end
+
+        if targetPos then
+            hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 4), targetPos)
+            task.wait(0.3)
+            return true
+        end
+    end
+    return false
+end
+
+local function getAllNPCNames()
+    local names = {}
+    local seen = {}
+
+    local defaultNPCs = {
+        "Ticket Quest Giver",
+        "Zeng Tianguo",
+        "Blind Grand Angler",
+        "Giang Lao",
+        "Ha Dieu De",
+        "Lao Ngo",
+        "Biao Di",
+        "Ba Chang",
+        "Sage Yijiu",
+        "Chu Tianjiao",
+        "Taoist",
+        "Shi Xing Diao",
+        "Duan Gan",
+        "Luoya Zhi Wang",
+        "Yaxuo"
+    }
+
+    local npcFolder = workspace:FindFirstChild("NPC")
+    if npcFolder then
+        for _, child in ipairs(npcFolder:GetDescendants()) do
+            if (child:IsA("Model") and (child:FindFirstChildWhichIsA("Humanoid") or child:FindFirstChild("Head") or child:FindFirstChildWhichIsA("BasePart"))) or (child:IsA("BasePart") and child.Parent == npcFolder) then
+                local n = child.Name
+                if not seen[n] and n ~= "Model" and n ~= "Part" and n ~= "Function" and n ~= "Quest" then
+                    seen[n] = true
+                    table.insert(names, n)
+                end
+            end
+        end
+    end
+
+    for _, n in ipairs(defaultNPCs) do
+        if not seen[n] then
+            seen[n] = true
+            table.insert(names, n)
+        end
+    end
+
+    table.sort(names)
+    return names
+end
+
+TabTP:Section({Title = "Teleport island"})
+
+local selectedTPIsland = OrderedIslandList[1] or "Beginning Isle"
+TabTP:Dropdown({
+    Title = "Chọn Đảo",
+    Multi = false,
+    List = OrderedIslandList,
+    Value = selectedTPIsland,
+    Callback = function(selected)
+        local val = type(selected) == "table" and selected[1] or selected
+        if val and val ~= "" then
+            selectedTPIsland = val
+        end
+    end
+})
+
+TabTP:Button({
+    Title = "Dịch Chuyển Đến Đảo",
+    Callback = function()
+        if selectedTPIsland then
+            teleportToIslandSpawn(selectedTPIsland)
+        end
+    end
+})
+
+TabTP:Section({Title = "Teleport NPC"})
+
+local npcList = getAllNPCNames()
+local selectedTPNPC = npcList[1] or "Ticket Quest Giver"
+TabTP:Dropdown({
+    Title = "Chọn NPC",
+    Multi = false,
+    List = npcList,
+    Value = selectedTPNPC,
+    Callback = function(selected)
+        local val = type(selected) == "table" and selected[1] or selected
+        if val and val ~= "" then
+            selectedTPNPC = val
+        end
+    end
+})
+
+TabTP:Button({
+    Title = "Dịch Chuyển Đến NPC",
+    Callback = function()
+        if selectedTPNPC then
+            teleportToNPC(selectedTPNPC)
+        end
+    end
+})
+
 --// SETTINGS TAB (FPS & ĐỒ HỌA)
+TabSettings:Section({Title = "FPS"})
 TabSettings:Toggle({
-    Title = "Bật FPS Cao & Giảm Lag (Unlock Max FPS)",
+    Title = "Bật FPS Cao & Giảm Lag",
     Value = state.HighFPS,
     Callback = function(v)
         state.HighFPS = v
@@ -1281,9 +1733,9 @@ TabSettings:Toggle({
     end
 })
 
-local graphicsLevels = {"Tắt", "Trung bình", "Cao", "Cực cao"}
+local graphicsLevels = {"Tắt", "Trung bình", "Cao", "Cực cao", "Siêu cực đại"}
 TabSettings:Dropdown({
-    Title = "Giảm Đồ Họa (3 Cấp Độ Anti-Lag)",
+    Title = "Giảm Đồ Họa (4 Cấp Độ Anti-Lag / Potato Mode)",
     Multi = false,
     List = graphicsLevels,
     Value = state.GraphicsLevel or "Tắt",
@@ -1641,6 +2093,97 @@ task.spawn(function()
         return nil
     end
 
+    -- Hàm kiểm tra kỹ năng Z, X, C, V có đang sẵn sàng (dùng được) hay đang hồi chiêu (cooldown)
+    local function isSkillReady(key)
+        local char = getCharacter()
+        if not char then return false end
+
+        -- Không dùng skill nếu character đang bị khóa chiêu toàn cục
+        if char:GetAttribute("SkillLocked") == true then
+            return false
+        end
+
+        -- 1. Kiểm tra trên UI SkillButton.Frame
+        local fGui = mainGui:FindFirstChild("Fishing")
+        local skillBtnFrame = fGui and fGui:FindFirstChild("SkillButton") and fGui.SkillButton:FindFirstChild("Frame")
+        local btn = skillBtnFrame and skillBtnFrame:FindFirstChild(key)
+        if btn then
+            -- Nếu nút không visible -> Cần câu không gắn skill ở slot này
+            if not btn.Visible then
+                return false
+            end
+            -- Nếu CD frame đang hiển thị -> skill đang trong thời gian hồi chiêu
+            local cd = btn:FindFirstChild("CD")
+            if cd and cd.Visible then
+                return false
+            end
+        end
+
+        -- 2. Kiểm tra trong Character.Skills
+        local skillsFolder = char:FindFirstChild("Skills")
+        if skillsFolder then
+            for _, skillVal in ipairs(skillsFolder:GetChildren()) do
+                if skillVal:IsA("NumberValue") and skillVal:GetAttribute("Key") == key then
+                    if skillVal.Value > 0 then
+                        return false
+                    end
+                    local using = skillVal:GetAttribute("UsingSkill")
+                    if using and using > 0 then
+                        return false
+                    end
+                end
+            end
+        end
+
+        return true
+    end
+
+    -- Hàm lấy % máu hiện tại của người chơi khi đang kéo cá / boss
+    local function getPlayerFishingHealthPercent(fishObj)
+        -- 1. Đọc từ NumberValue PlayerHealth trong cá
+        if fishObj then
+            for _, child in ipairs(fishObj:GetChildren()) do
+                if string.find(child.Name, tostring(pId)) and string.find(child.Name, "PlayerHealth") and child:IsA("NumberValue") then
+                    local maxHp = child:GetAttribute("MaxHP")
+                    if not maxHp or maxHp <= 0 then
+                        local fGui = mainGui:FindFirstChild("Fishing")
+                        local hpPlayer = fGui and fGui:FindFirstChild("HPPlayer")
+                        local progBar = hpPlayer and hpPlayer:FindFirstChild("ProgressionBar")
+                        local valText = progBar and progBar:FindFirstChild("Value") and progBar.Value.Text
+                        if valText and string.find(valText, "/") then
+                            local _, m = valText:match("(%d+)/(%d+)")
+                            maxHp = tonumber(m)
+                        end
+                    end
+                    if maxHp and maxHp > 0 then
+                        return (child.Value / maxHp) * 100
+                    end
+                end
+            end
+        end
+
+        -- 2. Đọc từ UI HPPlayer của Fishing GUI
+        local fGui = mainGui:FindFirstChild("Fishing")
+        local hpPlayer = fGui and fGui:FindFirstChild("HPPlayer")
+        if hpPlayer and hpPlayer.Visible then
+            local progBar = hpPlayer:FindFirstChild("ProgressionBar")
+            local bar = progBar and progBar:FindFirstChild("Bar")
+            if bar then
+                local scale = math.clamp(bar.Size.X.Scale, 0, 1)
+                return scale * 100
+            end
+        end
+
+        -- 3. Fallback theo Humanoid
+        local char = getCharacter()
+        local hum = char and char:FindFirstChild("Humanoid")
+        if hum and hum.MaxHealth > 0 then
+            return (hum.Health / hum.MaxHealth) * 100
+        end
+
+        return 100
+    end
+
     while _G.FishingMasterSession == currentSession do
         local canFish = isFishingAllowed()
         if canFish then
@@ -1685,8 +2228,10 @@ task.spawn(function()
                     -- Ném cần thất bại (kẹt góc, lệch bờ nước, hoặc server từ chối)
                     -- Đổi góc/điểm đứng ngay lập tức, không lãng phí 10s chờ đợi
                     task.wait(0.2)
-                    if state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
-                        relocateCurrentFishingSpot()
+                    if not (state.AutoWeatherBoss and weatherBossActive) then
+                        if state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
+                            relocateCurrentFishingSpot()
+                        end
                     end
                     task.wait(0.5)
                 else
@@ -1714,9 +2259,14 @@ task.spawn(function()
                             if not hookedFishName then task.wait(0.05) end
                         end
 
-                        -- 2. Kiểm tra bộ lọc cá (Fish Filter)
+                        -- 2. Kiểm tra bộ lọc cá (Fish Filter & Weather Boss)
                         local isWanted = true
-                        if state.FishFilterEnabled and not (state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb) then
+                        if weatherBossActive then
+                            -- Khi đang săn Boss Thời Tiết: CHỈ CÂU CÁC CON BOSS MỤC TIÊU HỢP LỆ TRÊN ĐẢO NÀY!
+                            if hookedFishName and not activeWeatherBossTargets[hookedFishName] then
+                                isWanted = false
+                            end
+                        elseif state.FishFilterEnabled and not (state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb) then
                             local hasSelection = false
                             if state.SelectedFishFilter then
                                 for _ in pairs(state.SelectedFishFilter) do
@@ -1735,6 +2285,14 @@ task.spawn(function()
                         -- Nếu KHÔNG PHẢI CÁ MONG MUỐN -> Đứt dây & Cất cần / Cầm lại
                         if not isWanted then
                             setFishFilterStatus("⏭️ Bỏ qua cá: " .. tostring(hookedFishName or "Không rõ") .. " -> Đứt dây & Thả lại...")
+                            if weatherBossActive then
+                                local targetBossNames = {}
+                                for bName in pairs(activeWeatherBossTargets) do
+                                    table.insert(targetBossNames, bName)
+                                end
+                                local bossNamesStr = #targetBossNames > 0 and table.concat(targetBossNames, ", ") or tostring(currentHuntingBoss or "Boss")
+                                setWeatherBossStatus("⏭️ Bỏ qua " .. tostring(hookedFishName or "cá rác") .. " -> Đang đợi: " .. bossNamesStr .. "...")
+                            end
                             -- Cất cần (Lúc này đang cầm cần -> gọi ToggleHotbar sẽ cất cần -> game tự hủy minigame / cá biến mất)
                             pcall(function()
                                 hotbarRem:InvokeServer("1", nil)
@@ -1748,6 +2306,9 @@ task.spawn(function()
                             -- ĐÚNG CÁ MONG MUỐN -> Bắt đầu câu & tung skill
                             if hookedFishName then
                                 setFishFilterStatus("🎯 Đang câu: " .. hookedFishName)
+                                if weatherBossActive then
+                                    setWeatherBossStatus("🔥 ĐÃ CẮN CÂU: " .. hookedFishName .. "! Đang kéo boss...")
+                                end
                             end
 
                             local readyObj = targetFish:FindFirstChild("Ready")
@@ -1762,10 +2323,35 @@ task.spawn(function()
 
                             while targetFish and targetFish.Parent and isFishingAllowed() do
                                 if state.AutoSkill then
-                                    for _, key in ipairs(skillKeys) do
-                                        skillRem:FireServer(key)
-                                        task.wait(0.2)
+                                    -- 1. Cơ chế TỰ ĐỘNG HỒI MÁU KHẨN CẤP
+                                    if state.AutoHealSkill and state.HealSkillKey and state.HealSkillKey ~= "" then
+                                        local currentHPPercent = getPlayerFishingHealthPercent(targetFish)
+                                        local threshold = tonumber(state.HealHPThreshold) or 40
+
+                                        if currentHPPercent <= threshold then
+                                            -- Máu đang dưới ngưỡng! Kích hoạt ngay chiêu hồi máu nếu đã sẵn sàng
+                                            if isSkillReady(state.HealSkillKey) then
+                                                skillRem:FireServer(state.HealSkillKey)
+                                                task.wait(0.2)
+                                            end
+                                        end
                                     end
+
+                                    -- 2. Cơ chế THI TRIỂN TẤN CÔNG (theo dõi chiêu nào dùng được, chiêu nào đang hồi)
+                                    for _, key in ipairs(skillKeys) do
+                                        -- Nếu đang bật hồi máu: Chiêu hồi máu ĐƯỢC GIỮ LẠI, KHÔNG dùng để tấn công
+                                        if state.AutoHealSkill and key == state.HealSkillKey then
+                                            continue
+                                        end
+
+                                        -- Chỉ thi triển chiêu có thể dùng (đã hồi xong, không bị cooldown hay lock)
+                                        if isSkillReady(key) then
+                                            skillRem:FireServer(key)
+                                            task.wait(0.18)
+                                        end
+                                    end
+
+                                    task.wait(0.15)
                                 else
                                     task.wait(0.5)
                                 end
@@ -1775,8 +2361,10 @@ task.spawn(function()
                     -- Quá 10s có ném cần nhưng không có cá cắn -> Đổi điểm đứng khác (chỉ khi làm Quest)
                     elseif isFishingAllowed() and not targetFish then
                         task.wait(0.3)
-                        if state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
-                            relocateCurrentFishingSpot()
+                        if not (state.AutoWeatherBoss and weatherBossActive) then
+                            if state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
+                                relocateCurrentFishingSpot()
+                            end
                         end
                         task.wait(0.8)
                     end
@@ -1794,6 +2382,12 @@ task.spawn(function()
     while _G.FishingMasterSession == currentSession do
         task.wait(3)
         if state.AutoDailyQuest then
+            if state.AutoWeatherBoss and weatherBossActive then
+                dailyQuestWantsFishing = false
+                task.wait(2)
+                continue
+            end
+
             processDailyQuestClaims()
             local dStatus = getDailyQuestStatus()
             
@@ -1822,6 +2416,16 @@ task.spawn(function()
     while _G.FishingMasterSession == currentSession do
         task.wait(1.5)
         if state.AutoTicketQuest then
+            -- Ưu tiên số 1: Nếu đang săn Boss Thời Tiết -> Tạm dừng Quest hoàn toàn để không giật/ép đảo
+            if state.AutoWeatherBoss and weatherBossActive then
+                ticketQuestWantsFishing = false
+                isInteractingNPC = false
+                local bName = currentHuntingBoss or state.SelectedWeatherBoss or "Boss"
+                setTicketStatus("⚡ Tạm dừng: Đang ưu tiên Săn Boss Thời Tiết (" .. tostring(bName) .. ")...")
+                task.wait(2)
+                continue
+            end
+
             if state.AutoEssenceOrb then
                 task.wait(2)
                 continue
@@ -1913,6 +2517,16 @@ task.spawn(function()
     while _G.FishingMasterSession == currentSession do
         task.wait(1.5)
         if state.AutoEssenceOrb then
+            -- Ưu tiên số 1: Nếu đang săn Boss Thời Tiết -> Tạm dừng Quest hoàn toàn để không giật/ép đảo
+            if state.AutoWeatherBoss and weatherBossActive then
+                essenceOrbWantsFishing = false
+                isInteractingNPC = false
+                local bName = currentHuntingBoss or state.SelectedWeatherBoss or "Boss"
+                setEssenceStatus("⚡ Tạm dừng: Đang ưu tiên Săn Boss Thời Tiết (" .. tostring(bName) .. ")...")
+                task.wait(2)
+                continue
+            end
+
             local npc = getZengNPC() or (workspace:FindFirstChild("NPC") and workspace.NPC:FindFirstChild("Function") and workspace.NPC.Function:FindFirstChild("Zeng Tianguo"))
             local npcTable = npc and {npc} or {}
 
@@ -1966,6 +2580,99 @@ task.spawn(function()
             isInteractingNPC = false
         else
             essenceOrbWantsFishing = false
+        end
+    end
+end)
+
+-- 8. AUTO WEATHER BOSS HUNTER (ĐA CHỌN BOSS THỜI TIẾT)
+task.spawn(function()
+    while _G.FishingMasterSession == currentSession do
+        task.wait(1.5)
+        local selectedList = state.SelectedWeatherBossList or {}
+        if #selectedList == 0 and state.SelectedWeatherBoss then
+            selectedList = {state.SelectedWeatherBoss}
+        end
+
+        if state.AutoWeatherBoss and #selectedList > 0 then
+            local currentServerWeather = workspace:GetAttribute("Weather") or "Clear"
+            local matchedBossName, bossInfo = findMatchedWeatherBoss(currentServerWeather, currentFishingLocation.Name)
+
+            if matchedBossName and bossInfo then
+                local targetIsland = bossInfo.Island
+                currentHuntingBoss = matchedBossName
+                activeWeatherBossTargets = getActiveBossTargetsOnIsland(targetIsland, currentServerWeather)
+
+                -- Ghép danh sách tên các boss đang có thể câu trên đảo này
+                local bossNamesOnIsland = {}
+                for bName in pairs(activeWeatherBossTargets) do
+                    table.insert(bossNamesOnIsland, bName)
+                end
+                local bossDisplay = table.concat(bossNamesOnIsland, ", ")
+
+                -- Nếu chuyển sang đảo mới hoặc vừa bắt đầu săn
+                if not weatherBossActive or currentFishingLocation.Name ~= targetIsland then
+                    if not weatherBossActive then
+                        weatherBossLastIsland = currentFishingLocation.Name or state.SelectedIsland or "Beginning Isle"
+                    end
+                    weatherBossActive = true
+                    setWeatherBossStatus("⚡ [" .. currentServerWeather .. "] Bay tới " .. targetIsland .. " săn: " .. bossDisplay .. "...")
+                    currentFishingLocation = { Type = "Island", Name = targetIsland }
+                    teleportToIslandShore(targetIsland)
+                    task.wait(2)
+                else
+                    currentFishingLocation = { Type = "Island", Name = targetIsland }
+                    setWeatherBossStatus("🎣 [" .. currentServerWeather .. "] Đang câu: " .. bossDisplay .. " tại " .. targetIsland)
+                end
+                weatherBossWantsFishing = true
+            else
+                -- Không có boss nào trong danh sách đã chọn trùng thời tiết hiện tại
+                if weatherBossActive then
+                    weatherBossActive = false
+                    weatherBossWantsFishing = false
+                    currentHuntingBoss = nil
+                    activeWeatherBossTargets = {}
+
+                    if state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
+                        setWeatherBossStatus("🌤️ Hết thời tiết boss (hiện tại: " .. currentServerWeather .. ") -> Trả quyền cho Auto Quest...")
+                        task.wait(1)
+                    else
+                        local returnIsland = weatherBossLastIsland or state.SelectedIsland or "Beginning Isle"
+                        setWeatherBossStatus("🌤️ Hết thời tiết boss (hiện tại: " .. currentServerWeather .. ") -> Quay về: " .. returnIsland)
+                        currentFishingLocation = { Type = "Island", Name = returnIsland }
+                        teleportToIslandShore(returnIsland)
+                        task.wait(2)
+                    end
+                else
+                    currentHuntingBoss = nil
+                    activeWeatherBossTargets = {}
+                    weatherBossWantsFishing = false
+
+                    -- Hiển thị thông báo trạng thái chờ
+                    if #selectedList == 1 then
+                        local bInfo = WeatherFishDatabase[selectedList[1]]
+                        local reqW = bInfo and bInfo.Weather or "thời tiết đặc biệt"
+                        setWeatherBossStatus("⏳ Chờ thời tiết: " .. reqW .. " cho " .. selectedList[1] .. " (Hiện tại: " .. currentServerWeather .. ")")
+                    else
+                        setWeatherBossStatus("⏳ Đang chờ thời tiết cho " .. #selectedList .. " boss đã chọn (Hiện tại: " .. currentServerWeather .. ")")
+                    end
+                end
+            end
+        else
+            if weatherBossActive then
+                weatherBossActive = false
+                weatherBossWantsFishing = false
+                currentHuntingBoss = nil
+                activeWeatherBossTargets = {}
+
+                if state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
+                    setWeatherBossStatus("🔴 Đã tắt săn boss thời tiết. Trả quyền cho Auto Quest...")
+                else
+                    local returnIsland = weatherBossLastIsland or state.SelectedIsland or "Beginning Isle"
+                    setWeatherBossStatus("🔴 Đã tắt săn boss thời tiết. Quay về: " .. returnIsland)
+                    currentFishingLocation = { Type = "Island", Name = returnIsland }
+                    teleportToIslandShore(returnIsland)
+                end
+            end
         end
     end
 end)
