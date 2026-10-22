@@ -376,17 +376,6 @@ local function analyzeQuestTarget(questText)
         }
     end
 
-    if (string.find(lower, "fish for") and string.find(lower, "time")) 
-        or (string.find(lower, "use bait") and string.find(lower, "time"))
-        or string.find(lower, "^fish for") 
-        or string.find(lower, "^use bait") then
-        return {
-            TargetType = "Island",
-            Destination = "Beginning Isle",
-            CanFishNow = true
-        }
-    end
-
     for fishName, info in pairs(WeatherFishDatabase) do
         if string.find(lower, string.lower(fishName)) then
             local weatherMatched = string.find(string.lower(serverWeather), string.lower(info.Weather)) ~= nil
