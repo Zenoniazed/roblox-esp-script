@@ -33,6 +33,8 @@ local state = {
     AutoSkill = true,
     AutoHealSkill = false,
     HealSkillKey = "Z",
+    HealSkillKeys = {["Z"] = true},
+    HealSkillList = {"Z"},
     HealHPThreshold = 40,
     LockBar = true,
     MinigameMode = "Safe", -- "Safe" (An Toàn) hoặc "Fast" (Siêu Tốc)
@@ -133,6 +135,22 @@ else
     state.SelectedWeatherBossList = {"Flame Fish"}
     state.SelectedWeatherBosses = {["Flame Fish"] = true}
     state.SelectedWeatherBoss = "Flame Fish"
+end
+
+-- Đồng bộ danh sách Chiêu Hồi Máu (Hỗ trợ cấu hình cũ & đa chọn)
+if state.HealSkillList and type(state.HealSkillList) == "table" and #state.HealSkillList > 0 then
+    state.HealSkillKeys = {}
+    for _, k in ipairs(state.HealSkillList) do
+        state.HealSkillKeys[k] = true
+    end
+    state.HealSkillKey = state.HealSkillList[1]
+elseif state.HealSkillKey and state.HealSkillKey ~= "" then
+    state.HealSkillList = {state.HealSkillKey}
+    state.HealSkillKeys = {[state.HealSkillKey] = true}
+else
+    state.HealSkillList = {"Z"}
+    state.HealSkillKeys = {["Z"] = true}
+    state.HealSkillKey = "Z"
 end
 
 --// DATABASE: VÙNG BIỂN & THỜI TIẾT
@@ -1532,16 +1550,36 @@ TabFarm:Toggle({
 })
 
 TabFarm:Dropdown({
-    Title = "Chọn Chiêu Hồi Máu",
-    Multi = false,
+    Title = "Chọn Chiêu Hồi Máu (Đa Chọn)",
+    Multi = true,
     List = {"Z", "X", "C", "V"},
-    Value = state.HealSkillKey or "Z",
+    Value = state.HealSkillList or {"Z"},
     Callback = function(selected)
-        local val = type(selected) == "table" and selected[1] or selected
-        if val and val ~= "" then
-            state.HealSkillKey = tostring(val)
-            save()
+        local healMap = {}
+        local healArr = {}
+        if type(selected) == "table" then
+            for k, v in pairs(selected) do
+                if type(k) == "string" and v == true then
+                    healMap[k] = true
+                    table.insert(healArr, k)
+                elseif type(v) == "string" then
+                    healMap[v] = true
+                    table.insert(healArr, v)
+                end
+            end
+        elseif type(selected) == "string" and selected ~= "" then
+            healMap[selected] = true
+            table.insert(healArr, selected)
         end
+
+        state.HealSkillKeys = healMap
+        state.HealSkillList = healArr
+        if #healArr > 0 then
+            state.HealSkillKey = healArr[1]
+        else
+            state.HealSkillKey = nil
+        end
+        save()
     end
 })
 
@@ -2547,8 +2585,19 @@ task.spawn(function()
             local currentFish = findMyFish()
             local char = getCharacter()
 
+            local function isHealSkill(key)
+                if not state.AutoHealSkill then return false end
+                if state.HealSkillKeys and state.HealSkillKeys[key] then return true end
+                if state.HealSkillList then
+                    for _, k in ipairs(state.HealSkillList) do
+                        if k == key then return true end
+                    end
+                end
+                return (state.HealSkillKey == key)
+            end
+
             -- 1. Cơ chế TỰ ĐỘNG HỒI MÁU KHẨN CẤP (khi máu dưới ngưỡng cài đặt)
-            if state.AutoHealSkill and state.HealSkillKey and state.HealSkillKey ~= "" then
+            if state.AutoHealSkill and (state.HealSkillList and #state.HealSkillList > 0 or (state.HealSkillKey and state.HealSkillKey ~= "")) then
                 local currentHPPercent = getPlayerFishingHealthPercent(currentFish)
                 local threshold = tonumber(state.HealHPThreshold) or 40
                 local shouldHeal = (currentHPPercent <= threshold)
@@ -2556,9 +2605,12 @@ task.spawn(function()
                 if shouldHeal then
                     -- Nếu đang dính trạng thái không thể hồi máu (Poisoned) -> Chờ hết Poisoned mới dùng
                     if not isPlayerHealBlocked(char) then
-                        if isSkillReady(state.HealSkillKey, char) then
-                            skillRem:FireServer(state.HealSkillKey)
-                            task.wait(0.2)
+                        local healList = (state.HealSkillList and #state.HealSkillList > 0) and state.HealSkillList or {state.HealSkillKey}
+                        for _, hKey in ipairs(healList) do
+                            if isSkillReady(hKey, char) then
+                                skillRem:FireServer(hKey)
+                                task.wait(0.2)
+                            end
                         end
                     end
                 end
@@ -2566,8 +2618,8 @@ task.spawn(function()
 
             -- 2. Cơ chế THI TRIỂN TẤN CÔNG (theo dõi chiêu nào dùng được, chiêu nào đang hồi)
             for _, key in ipairs(skillKeys) do
-                -- Nếu đang bật hồi máu: Chiêu hồi máu ĐƯỢC GIỮ LẠI, KHÔNG dùng để tấn công
-                if state.AutoHealSkill and key == state.HealSkillKey then
+                -- Nếu đang bật hồi máu: Toàn bộ chiêu hồi máu ĐƯỢC GIỮ LẠI, KHÔNG dùng để tấn công
+                if isHealSkill(key) then
                     continue
                 end
 
@@ -2593,9 +2645,197 @@ task.spawn(function()
     local minigameRem = events:WaitForChild("FishingMinigame")
 
     local currentHookedFishName = nil
+    local lastHookedFishDebug = nil
+
+    -- Debug: Bắt sự kiện cá cắn câu và đo kích thước Model / Scale / Attributes
     minigameRem.OnClientEvent:Connect(function(u40)
         if type(u40) == "table" and u40.FishName then
             currentHookedFishName = u40.FishName
+            local fishName = u40.FishName
+
+            task.spawn(function()
+                task.wait(0.2)
+                local fishObj = findMyFish()
+                local fishInfoModule = ReplicatedStorage:FindFirstChild("Info") and ReplicatedStorage.Info:FindFirstChild("Inventory") and ReplicatedStorage.Info.Inventory:FindFirstChild(fishName)
+                local fishInfo = nil
+                if fishInfoModule then
+                    pcall(function() fishInfo = require(fishInfoModule) end)
+                end
+
+                local actualModel = fishObj and (fishObj:FindFirstChild("Model") or fishObj:FindFirstChildWhichIsA("Model") or fishObj)
+                local baseModel = ReplicatedStorage:FindFirstChild("Model") and ReplicatedStorage.Model:FindFirstChild(fishName)
+
+                local scale = nil
+                local extentsSize = nil
+                local baseExtentsSize = nil
+                local torsoSize = nil
+                local baseTorsoSize = nil
+                local headSize = nil
+                local headMeshScale = nil
+                local baseHeadSize = nil
+                local hrpSize = nil
+                local attrs = {}
+
+                if fishObj then
+                    pcall(function()
+                        attrs = fishObj:GetAttributes()
+                    end)
+                end
+
+                if actualModel then
+                    pcall(function()
+                        if actualModel:IsA("Model") then
+                            scale = actualModel:GetScale()
+                            extentsSize = actualModel:GetExtentsSize()
+                        end
+                    end)
+
+                    pcall(function()
+                        local head = actualModel:FindFirstChild("head") or actualModel:FindFirstChild("Head")
+                        if head and head:IsA("BasePart") then
+                            headSize = head.Size
+                            local sm = head:FindFirstChildOfClass("SpecialMesh") or head:FindFirstChildOfClass("Mesh")
+                            if sm then
+                                headMeshScale = sm.Scale
+                            end
+                        end
+                        local torso = actualModel:FindFirstChild("torso") or actualModel:FindFirstChild("Torso")
+                        if torso and torso:IsA("BasePart") then
+                            torsoSize = torso.Size
+                        end
+                        local hrp = actualModel:FindFirstChild("HumanoidRootPart")
+                        if hrp and hrp:IsA("BasePart") then
+                            hrpSize = hrp.Size
+                        end
+                    end)
+
+                    pcall(function()
+                        for k, v in pairs(actualModel:GetAttributes()) do
+                            attrs["Model_" .. tostring(k)] = v
+                        end
+                    end)
+                end
+
+                if baseModel and baseModel:IsA("Model") then
+                    pcall(function()
+                        baseExtentsSize = baseModel:GetExtentsSize()
+                        local bHead = baseModel:FindFirstChild("head") or baseModel:FindFirstChild("Head")
+                        if bHead and bHead:IsA("BasePart") then
+                            baseHeadSize = bHead.Size
+                        end
+                        local bTorso = baseModel:FindFirstChild("torso") or baseModel:FindFirstChild("Torso")
+                        if bTorso and bTorso:IsA("BasePart") then
+                            baseTorsoSize = bTorso.Size
+                        end
+                    end)
+                end
+
+                local minKg = fishInfo and fishInfo.MinKg or "N/A"
+                local maxKg = fishInfo and fishInfo.MaxKg or "N/A"
+
+                lastHookedFishDebug = {
+                    FishName = fishName,
+                    MinKg = tonumber(minKg),
+                    MaxKg = tonumber(maxKg),
+                    Scale = scale,
+                    ExtentsSize = extentsSize,
+                    BaseExtentsSize = baseExtentsSize,
+                    HeadSize = headSize,
+                    HeadMeshScale = headMeshScale,
+                    BaseHeadSize = baseHeadSize,
+                    TorsoSize = torsoSize,
+                    BaseTorsoSize = baseTorsoSize,
+                    HrpSize = hrpSize,
+                    Attributes = attrs,
+                    Time = tick()
+                }
+
+                print("==================================================")
+                print("🎣 [FISH DEBUG] CÁ VỪA CẮN CÂU: " .. tostring(fishName))
+                print(string.format("   • Dải chuẩn trong Info: %s KG ~ %s KG", tostring(minKg), tostring(maxKg)))
+                if scale then
+                    print(string.format("   • Model:GetScale(): %.4f", scale))
+                end
+                if extentsSize then
+                    print(string.format("   • ExtentsSize (Dài x Rộng x Cao): (%.2f, %.2f, %.2f)", extentsSize.X, extentsSize.Y, extentsSize.Z))
+                end
+                if headSize then
+                    print(string.format("   • Head Size: (%.2f, %.2f, %.2f)", headSize.X, headSize.Y, headSize.Z))
+                    if baseHeadSize then
+                        local hRatio = headSize.Magnitude / baseHeadSize.Magnitude
+                        print(string.format("   • Head Scale so với gốc: %.4f (Gốc: %.2f)", hRatio, baseHeadSize.Magnitude))
+                    end
+                end
+                if headMeshScale then
+                    print(string.format("   • Head SpecialMesh.Scale: (%.2f, %.2f, %.2f)", headMeshScale.X, headMeshScale.Y, headMeshScale.Z))
+                end
+                if torsoSize then
+                    print(string.format("   • Torso Size: (%.2f, %.2f, %.2f)", torsoSize.X, torsoSize.Y, torsoSize.Z))
+                    if baseTorsoSize then
+                        local tRatio = torsoSize.Magnitude / baseTorsoSize.Magnitude
+                        print(string.format("   • Torso Scale so với gốc: %.4f (Gốc: %.2f)", tRatio, baseTorsoSize.Magnitude))
+                    end
+                end
+                if hrpSize then
+                    print(string.format("   • HRP Size: (%.2f, %.2f, %.2f)", hrpSize.X, hrpSize.Y, hrpSize.Z))
+                end
+                local attrList = {}
+                for k, v in pairs(attrs) do
+                    table.insert(attrList, tostring(k) .. "=" .. tostring(v))
+                end
+                if #attrList > 0 then
+                    print("   • Attributes: " .. table.concat(attrList, ", "))
+                end
+                print("==================================================")
+            end)
+        end
+    end)
+
+    -- Debug: Theo dõi khi cá được thêm vào Inventory để so sánh cân nặng thực tế
+    task.spawn(function()
+        local dataFolder = ReplicatedStorage:WaitForChild("Data", 5)
+        local userFolder = dataFolder and dataFolder:WaitForChild(tostring(pId), 5)
+        local invFolder = userFolder and userFolder:WaitForChild("Inventory", 5)
+        if invFolder then
+            invFolder.ChildAdded:Connect(function(child)
+                local itemName = child.Name
+                local parts = string.split(itemName, "|")
+                if #parts >= 2 then
+                    local fName = string.match(parts[1], "^%s*(.-)%s*$")
+                    local rawWeight = string.match(parts[2], "^%s*(.-)%s*$")
+                    local weightNum = tonumber(string.split(rawWeight, " ")[1]) or tonumber(rawWeight:match("%d+"))
+                    if weightNum then
+                        task.wait(0.1)
+                        print("==================================================")
+                        print(string.format("🎉 [FISH DEBUG - KẾT QUẢ] ĐÃ BẮT ĐƯỢC: %s", fName))
+                        print(string.format("⚖️ Cân nặng thực tế: %s KG (Chuỗi: '%s')", tostring(weightNum), rawWeight))
+                        if lastHookedFishDebug and lastHookedFishDebug.FishName == fName and (tick() - lastHookedFishDebug.Time) < 300 then
+                            local minK = lastHookedFishDebug.MinKg
+                            local maxK = lastHookedFishDebug.MaxKg
+                            if minK and maxK and maxK > minK then
+                                local ratio = (weightNum - minK) / (maxK - minK)
+                                print(string.format("📊 Tỉ lệ vị trí cân nặng: %.2f%% (Dải: %s ~ %s KG)", ratio * 100, tostring(minK), tostring(maxK)))
+                            end
+                            if lastHookedFishDebug.HeadSize then
+                                local hs = lastHookedFishDebug.HeadSize
+                                print(string.format("📏 Head Size lúc cắn: (%.2f, %.2f, %.2f)", hs.X, hs.Y, hs.Z))
+                            end
+                            if lastHookedFishDebug.HeadMeshScale then
+                                local hms = lastHookedFishDebug.HeadMeshScale
+                                print(string.format("📏 Head Mesh.Scale lúc cắn: (%.2f, %.2f, %.2f)", hms.X, hms.Y, hms.Z))
+                            end
+                            if lastHookedFishDebug.Scale then
+                                print(string.format("📏 Model:GetScale() lúc cắn: %s", tostring(lastHookedFishDebug.Scale)))
+                            end
+                            if lastHookedFishDebug.ExtentsSize then
+                                local es = lastHookedFishDebug.ExtentsSize
+                                print(string.format("📏 Bounding Box lúc cắn: (%.2f, %.2f, %.2f)", es.X, es.Y, es.Z))
+                            end
+                        end
+                        print("==================================================")
+                    end
+                end
+            end)
         end
     end)
 
