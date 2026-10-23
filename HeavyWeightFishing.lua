@@ -16,8 +16,17 @@ local GuiService = game:GetService("GuiService")
 local CONFIG = "HeavyWeightFishing_Config.json"
 local player = Players.LocalPlayer
 local pId = player.UserId
+local myPlayerHealthTag = tostring(pId) .. "_PlayerHealth"
 local pGui = player:WaitForChild("PlayerGui")
 local mainGui = pGui:WaitForChild("MainGui")
+
+local function getMainGui()
+    if mainGui and mainGui.Parent then
+        return mainGui
+    end
+    mainGui = pGui:FindFirstChild("MainGui") or pGui:WaitForChild("MainGui", 2)
+    return mainGui
+end
 
 local state = {
     AutoFishing = false,
@@ -32,6 +41,7 @@ local state = {
     AutoSlam = true, -- Auto Slam & Charge
     AutoSell = false,
     SelectedIsland = "Beginning Isle",
+    CustomFarmPos = nil, -- {X = 0, Y = 0, Z = 0}
     -- Ticket Quest
     AutoTicketQuest = false,
     TicketHardMode = true,
@@ -39,6 +49,8 @@ local state = {
     AutoDailyQuest = false,
     -- Essence Orb (Zeng Tianguo Quest)
     AutoEssenceOrb = false,
+    -- Fast Bait Quest
+    FastBaitQuest = true,
     -- Fish Filter
     FishFilterEnabled = false,
     SelectedFishFilter = {},
@@ -48,6 +60,7 @@ local state = {
     SelectedWeatherBoss = "Flame Fish",
     SelectedWeatherBossList = {"Flame Fish"},
     SelectedWeatherBosses = {["Flame Fish"] = true},
+    -- Settings (Giảm Đồ Họa)
     GraphicsLevel = "Tắt",
 }
 
@@ -101,6 +114,11 @@ end
 
 load()
 
+-- Khôi phục điểm câu tùy chỉnh từ cấu hình đã lưu
+if state.CustomFarmPos and type(state.CustomFarmPos) == "table" and state.CustomFarmPos.X then
+    CUSTOM_FARM_POS = Vector3.new(state.CustomFarmPos.X, state.CustomFarmPos.Y, state.CustomFarmPos.Z)
+end
+
 -- Đồng bộ danh sách Boss Thời Tiết (Hỗ trợ cấu hình cũ & đa chọn)
 if state.SelectedWeatherBossList and #state.SelectedWeatherBossList > 0 then
     state.SelectedWeatherBosses = {}
@@ -135,16 +153,16 @@ local IslandFishDatabase = {
 }
 
 local WeatherFishDatabase = {
-    ["Flame Fish"] = {Island = "Weather Isle", Weather = "BlazingSun"},
+    ["Flame Fish"] = {Island = "Weather Isle", Weather = "Blazing Sun"},
     ["Aquatic Fish"] = {Island = "Weather Isle", Weather = "Rainy"},
     ["Thunder Fish"] = {Island = "Weather Isle", Weather = "Thunderstorm"},
     ["Wind Fish"] = {Island = "Weather Isle", Weather = "Windy"},
     ["Colossal Bull Shark"] = {Island = "Mystic Reef Isle", Weather = "Thunderstorm"},
     ["Crimson Electric Eel"] = {Island = "Bamboo Isle", Weather = "Thunderstorm"},
     ["Dark Lionfish"] = {Island = "Mistpeak Isle", Weather = "Rainy"},
-    ["Draconic Koi"] = {Island = "Amber Isle", Weather = "BlazingSun"},
-    ["Golden Dragonfish"] = {Island = "Amber Isle", Weather = "BlazingSun"},
-    ["Sanguine Fish"] = {Island = "Amber Isle", Weather = "BlazingSun"},
+    ["Draconic Koi"] = {Island = "Amber Isle", Weather = "Blazing Sun"},
+    ["Golden Dragonfish"] = {Island = "Amber Isle", Weather = "Blazing Sun"},
+    ["Sanguine Fish"] = {Island = "Amber Isle", Weather = "Blazing Sun"},
     ["Flying Fish Emperor"] = {Island = "Perch Isle", Weather = "Windy"},
     ["Flying Fish Empress"] = {Island = "Perch Isle", Weather = "Windy"},
     ["Frost Kingfish"] = {Island = "Frost Isle", Weather = "Snowy"},
@@ -250,8 +268,43 @@ table.sort(AllFishNames)
 local setFishFilterStatus = function(msg) end
 
 --// HELPER FUNCTIONS (CHARACTER & INVENTORY)
+local localCharacter = player.Character or workspace:FindFirstChild(player.Name)
+player.CharacterAdded:Connect(function(char)
+    localCharacter = char
+end)
+player.CharacterRemoving:Connect(function()
+    localCharacter = nil
+end)
+
+local cachedPlayerData = nil
+local function getPlayerData()
+    if cachedPlayerData and cachedPlayerData.Parent then
+        return cachedPlayerData
+    end
+    local dataFolder = ReplicatedStorage:FindFirstChild("Data")
+    if dataFolder then
+        local pData = dataFolder:FindFirstChild(tostring(pId))
+        if pData then
+            cachedPlayerData = pData
+            return cachedPlayerData
+        end
+    end
+    local ok, res = pcall(function()
+        return ReplicatedStorage:WaitForChild("Data", 3):WaitForChild(tostring(pId), 3)
+    end)
+    if ok and res then
+        cachedPlayerData = res
+        return cachedPlayerData
+    end
+    return nil
+end
+
 local function getCharacter()
-    return workspace:FindFirstChild(player.Name) or player.Character
+    if localCharacter and localCharacter.Parent then
+        return localCharacter
+    end
+    localCharacter = player.Character or workspace:FindFirstChild(player.Name)
+    return localCharacter
 end
 
 local function isHoldingRod()
@@ -436,10 +489,8 @@ local function ensureBaitForQuest(qInfo)
         if tick() - lastBaitCheck < 3 then return end
         lastBaitCheck = tick()
 
-        local ok, data = pcall(function()
-            return ReplicatedStorage:WaitForChild("Data"):WaitForChild(player.UserId)
-        end)
-        if not ok or not data then return end
+        local data = getPlayerData()
+        if not data then return end
 
         local events = ReplicatedStorage:WaitForChild("Events")
         local buyBaitRem = events:FindFirstChild("BuyBait")
@@ -530,11 +581,38 @@ local function analyzeQuestTarget(questText)
         end
     end
 
-    return {
-        TargetType = "Island",
-        Destination = state.SelectedIsland or "Beginning Isle",
-        CanFishNow = true
-    }
+    if CUSTOM_FARM_POS then
+        return {
+            TargetType = "Default",
+            Destination = "Điểm câu tùy chỉnh",
+            Position = CUSTOM_FARM_POS,
+            CanFishNow = true
+        }
+    else
+        return {
+            TargetType = "Island",
+            Destination = state.SelectedIsland or "Beginning Isle",
+            CanFishNow = true
+        }
+    end
+end
+
+local function travelToFarmSpot()
+    if CUSTOM_FARM_POS then
+        currentFishingLocation = {
+            Type = "Default",
+            Name = "Điểm câu tùy chỉnh",
+            Position = CUSTOM_FARM_POS
+        }
+        teleportToPos(CUSTOM_FARM_POS)
+    else
+        local farmIsland = state.SelectedIsland or "Beginning Isle"
+        currentFishingLocation = {
+            Type = "Island",
+            Name = farmIsland
+        }
+        teleportToIslandShore(farmIsland)
+    end
 end
 
 local function travelToQuestSpot(targetData)
@@ -546,7 +624,12 @@ local function travelToQuestSpot(targetData)
     if targetData.TargetType == "Boss" then
         teleportToIslandShore("Battlefield Isle")
     elseif targetData.TargetType == "Default" then
-        teleportToPos(CUSTOM_FARM_POS)
+        local pos = targetData.Position or CUSTOM_FARM_POS
+        if pos then
+            teleportToPos(pos)
+        else
+            teleportToIslandShore(state.SelectedIsland or "Beginning Isle")
+        end
     elseif targetData.Destination then
         teleportToIslandShore(targetData.Destination)
     end
@@ -570,7 +653,21 @@ end
 local function findMyFish()
     local fishes = workspace:FindFirstChild("Fishes")
     if not fishes then return nil end
-    for _, f in ipairs(fishes:GetChildren()) do
+    -- 1. Ưu tiên tra cứu trực tiếp qua FishID của LocalPlayer (chuẩn ClientModule Fishing, tức thì cho cả Boss Enzo & Long Diaohai)
+    local fishId = player:GetAttribute("FishID")
+    if fishId and fishId ~= "" then
+        local target = fishes:FindFirstChild(fishId)
+        if target then return target end
+    end
+    local children = fishes:GetChildren()
+    -- 2. Tra cứu trực tiếp O(1) qua tên chính xác UserId_PlayerHealth
+    for _, f in ipairs(children) do
+        if f:FindFirstChild(myPlayerHealthTag) then
+            return f
+        end
+    end
+    -- 3. Fallback dự phòng trường hợp game đổi tiền tố
+    for _, f in ipairs(children) do
         for _, c in ipairs(f:GetChildren()) do
             if string.find(c.Name, tostring(pId)) and string.find(c.Name, "PlayerHealth") then
                 return f
@@ -578,6 +675,43 @@ local function findMyFish()
         end
     end
     return nil
+end
+
+-- Hàm xác định người chơi có đang trong một trận kéo cá / đánh Boss hay không
+local function isPlayerInFishingFight()
+    -- 1. Ưu tiên kiểm tra FishID từ LocalPlayer attribute (chuẩn ClientModule, tức thì khi câu cá hoặc đánh Boss Enzo/Long Diaohai)
+    local fishId = player:GetAttribute("FishID")
+    if fishId and fishId ~= "" then
+        return true
+    end
+
+    -- 2. Kiểm tra UI Fishing đang mở
+    local mGui = getMainGui()
+    local fGui = mGui and mGui:FindFirstChild("Fishing")
+    if fGui and fGui.Visible then
+        local bBar = fGui:FindFirstChild("BossFightBar")
+        if bBar and bBar.Visible then return true end
+        local pBar = fGui:FindFirstChild("ProgressionBar")
+        if pBar and pBar.Visible then return true end
+        local rBar = fGui:FindFirstChild("Rhythm")
+        if rBar and rBar.Visible then return true end
+        return true
+    end
+
+    -- 3. Kiểm tra đối tượng cá / boss trong workspace.Fishes
+    if findMyFish() then
+        return true
+    end
+
+    -- 4. Kiểm tra character attribute
+    local char = getCharacter()
+    if char then
+        if char:GetAttribute("Phase2") == true or char:GetAttribute("Fishing") == true then
+            return true
+        end
+    end
+
+    return false
 end
 
 local cachedTicketNPC = nil
@@ -602,10 +736,8 @@ local function getTicketNPC()
 end
 
 local function getQuestCooldown()
-    local ok, data = pcall(function()
-        return ReplicatedStorage:WaitForChild("Data"):WaitForChild(player.UserId)
-    end)
-    if not ok or not data then return 0 end
+    local data = getPlayerData()
+    if not data then return 0 end
     local cd = data:FindFirstChild("TicketQuestCooldown")
     if not cd then return 0 end
     local rem = cd.Value - workspace:GetServerTimeNow()
@@ -613,10 +745,8 @@ local function getQuestCooldown()
 end
 
 local function getActiveTicketQuestInfo()
-    local ok, data = pcall(function()
-        return ReplicatedStorage:WaitForChild("Data"):WaitForChild(player.UserId)
-    end)
-    if not ok or not data then return nil end
+    local data = getPlayerData()
+    if not data then return nil end
     
     local mainQuestFolder = data:FindFirstChild("Quest") and data.Quest:FindFirstChild("Main")
     if not mainQuestFolder then return nil end
@@ -732,10 +862,8 @@ local function getZengNPC()
 end
 
 local function getActiveZengQuestInfo()
-    local ok, data = pcall(function()
-        return ReplicatedStorage:WaitForChild("Data"):WaitForChild(player.UserId)
-    end)
-    if not ok or not data then return nil end
+    local data = getPlayerData()
+    if not data then return nil end
 
     local mainQuestFolder = data:FindFirstChild("Quest") and data.Quest:FindFirstChild("Main")
     if not mainQuestFolder then return nil end
@@ -848,10 +976,8 @@ local function getActiveZengQuestInfo()
 end
 
 local function getDailyQuestStatus()
-    local ok, data = pcall(function()
-        return ReplicatedStorage:WaitForChild("Data"):WaitForChild(player.UserId)
-    end)
-    if not ok or not data then return nil end
+    local data = getPlayerData()
+    if not data then return nil end
     local dailyFolder = data:FindFirstChild("Quest") and data.Quest:FindFirstChild("Daily")
     if not dailyFolder then return nil end
 
@@ -893,10 +1019,8 @@ local function getDailyQuestStatus()
 end
 
 local function processDailyQuestClaims()
-    local ok, data = pcall(function()
-        return ReplicatedStorage:WaitForChild("Data"):WaitForChild(player.UserId)
-    end)
-    if not ok or not data then return end
+    local data = getPlayerData()
+    if not data then return end
     local dailyFolder = data:FindFirstChild("Quest") and data.Quest:FindFirstChild("Daily")
     if not dailyFolder then return end
 
@@ -936,37 +1060,126 @@ local function processDailyQuestClaims()
     end
 end
 
---// HỆ THỐNG TỐI ƯU GIẢM ĐỒ HỌA
-local Lighting = game:GetService("Lighting")
-local graphicsConn = nil
+-- Hàm kiểm tra xem có đang làm nhiệm vụ dùng mồi (Use Bait) và đủ điều kiện skip kéo cá hay không
+local function shouldFastSkipForBaitQuest()
+    if not state.FastBaitQuest then return false end
 
+    -- 1. Tuyệt đối không skip nếu đang săn Boss Thời Tiết
+    if state.AutoWeatherBoss and weatherBossActive then
+        return false
+    end
 
-local function isProtectedInstance(v)
-    if not v or not v.Parent then return true end
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr.Character and (v == plr.Character or v:IsDescendantOf(plr.Character)) then
+    -- 2. Kiểm tra Daily Quest (Nhiệm vụ mồi thường là task 3)
+    if state.AutoDailyQuest then
+        local dStatus = getDailyQuestStatus()
+        -- Nếu Daily Quest đang cần mồi và KHÔNG cần Boss hay câu cá cụ thể khác
+        if dStatus and dStatus.NeedBait and not dStatus.NeedFishing and not dStatus.NeedBoss then
             return true
         end
     end
-    local npcFolder = workspace:FindFirstChild("NPC")
-    if npcFolder and (v == npcFolder or v:IsDescendantOf(npcFolder)) then return true end
-    local sp = workspace:FindFirstChild("Spawnpoint")
-    if sp and (v == sp or v:IsDescendantOf(sp)) then return true end
-    local fishes = workspace:FindFirstChild("Fishes")
-    if fishes and (v == fishes or v:IsDescendantOf(fishes)) then return true end
-    local boat = workspace:FindFirstChild("Boat")
-    if boat and (v == boat or v:IsDescendantOf(boat)) then return true end
-    if v:IsA("BasePart") and (v.Name == "Water" or v:GetAttribute("WaterType") or (v.Parent and v.Parent.Name == "Ocean")) then
+
+    -- 3. Kiểm tra Ticket Quest
+    if state.AutoTicketQuest then
+        local qInfo = getActiveTicketQuestInfo()
+        if qInfo and not qInfo.IsCompleted and qInfo.Text then
+            local lower = string.lower(qInfo.Text)
+            if string.find(lower, "use bait") or string.find(lower, "bait") then
+                -- Kiểm tra xem có yêu cầu bắt cá (catch fish) nào chưa hoàn thành không
+                local needsCatch = false
+                local parts = string.split(qInfo.Text, "|")
+                for _, part in ipairs(parts) do
+                    local pLower = string.lower(part)
+                    if not string.find(pLower, "bait") then
+                        local cur, maxVal = part:match("(%d+)/(%d+)")
+                        if cur and maxVal and tonumber(cur) < tonumber(maxVal) then
+                            needsCatch = true
+                            break
+                        end
+                    end
+                end
+                if not needsCatch then
+                    return true
+                end
+            end
+        end
+    end
+
+    -- 4. Kiểm tra Zeng Tianguo Quest (Essence Orb)
+    if state.AutoEssenceOrb then
+        local qInfo = getActiveZengQuestInfo()
+        if qInfo and not qInfo.IsCompleted and qInfo.Text then
+            local lower = string.lower(qInfo.Text)
+            if string.find(lower, "use bait") or (string.find(lower, "bait") and not string.find(lower, "catch") and not string.find(lower, "fish")) then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+--// HỆ THỐNG GIẢM ĐỒ HỌA
+local Lighting = game:GetService("Lighting")
+local graphicsConn = nil
+
+local OPTIMIZE_CLASSES = {
+    Part = true, MeshPart = true, UnionOperation = true, BasePart = true,
+    Decal = true, Texture = true, SurfaceAppearance = true,
+    ParticleEmitter = true, Trail = true, Beam = true, Smoke = true,
+    Fire = true, Sparkles = true, Highlight = true, SpecialMesh = true,
+    Model = true, Sound = true
+}
+
+local function isProtectedInstance(v)
+    if not v or not v.Parent then return true end
+    
+    -- 1. Kiểm tra nhân vật của mình
+    local myChar = getCharacter()
+    if myChar and (v == myChar or v:IsDescendantOf(myChar)) then
+        return true
+    end
+
+    -- 2. Kiểm tra nếu thuộc nhân vật người chơi khác hoặc NPC có Humanoid
+    local model = v:IsA("Model") and v or v:FindFirstAncestorOfClass("Model")
+    if model then
+        if model:FindFirstChildOfClass("Humanoid") then
+            return true
+        end
+        local mName = string.lower(model.Name)
+        if mName == "npc" or mName == "spawnpoint" or mName == "fishes" or mName == "boat" then
+            return true
+        end
+    end
+
+    -- 3. Kiểm tra các thư mục đặc biệt quan trọng
+    local pName = v.Parent and v.Parent.Name or ""
+    if pName == "NPC" or pName == "Spawnpoint" or pName == "Fishes" or pName == "Boat" or pName == "Ocean" then
+        return true
+    end
+
+    if v:IsA("BasePart") and (v.Name == "Water" or v:GetAttribute("WaterType")) then
         return true
     end
     if v:IsA("Terrain") then
         return true
     end
+
     return false
 end
 
+local DECOR_KEYWORDS = {
+    "tree", "leaves", "leaf", "trunk", "branch", "bark", "wood",
+    "bush", "bushes", "plant", "plants", "grass", "flower", "flowers",
+    "foliage", "flora", "vegetation", "bamboo", "mushroom", "vine",
+    "decor", "decoration", "decorations", "prop", "props", "detail", "details",
+    "rock", "rocks", "stone", "boulder", "pebble", "pebbles",
+    "fence", "bench", "lamp", "lantern", "streetlamp", "torch", "statue",
+    "coral", "seaweed", "kelp", "grasspatch", "flowerbed", "clutter",
+    "house", "building", "roof", "pillar", "gate", "bridge", "barrel", "box", "crate"
+}
+
 local function isDecorOrFoliage(v)
-    if isProtectedInstance(v) then return false end
+    if not (v:IsA("BasePart") or v:IsA("Model")) then return false end
 
     local name = string.lower(v.Name)
     -- Giữ an toàn cho toàn bộ đảo, mặt đất, bờ biển, đường đi, khu vực spawn
@@ -980,18 +1193,7 @@ local function isDecorOrFoliage(v)
     local parentName = v.Parent and string.lower(v.Parent.Name) or ""
     local checkParent = not (string.find(parentName, "isle") or string.find(parentName, "island") or string.find(parentName, "workspace"))
 
-    local keywords = {
-        "tree", "leaves", "leaf", "trunk", "branch", "bark", "wood",
-        "bush", "bushes", "plant", "plants", "grass", "flower", "flowers",
-        "foliage", "flora", "vegetation", "bamboo", "mushroom", "vine",
-        "decor", "decoration", "decorations", "prop", "props", "detail", "details",
-        "rock", "rocks", "stone", "boulder", "pebble", "pebbles",
-        "fence", "bench", "lamp", "lantern", "streetlamp", "torch", "statue",
-        "coral", "seaweed", "kelp", "grasspatch", "flowerbed", "clutter",
-        "house", "building", "roof", "pillar", "gate", "bridge", "barrel", "box", "crate"
-    }
-
-    for _, kw in ipairs(keywords) do
+    for _, kw in ipairs(DECOR_KEYWORDS) do
         if string.find(name, kw) then
             return true
         end
@@ -1127,7 +1329,9 @@ local function applyGraphicsReduction(level)
         end
 
         for _, v in ipairs(workspace:GetDescendants()) do
-            optimizeObj(v)
+            if OPTIMIZE_CLASSES[v.ClassName] then
+                optimizeObj(v)
+            end
         end
 
         graphicsConn = workspace.DescendantAdded:Connect(function(v)
@@ -1135,12 +1339,15 @@ local function applyGraphicsReduction(level)
                 if graphicsConn then graphicsConn:Disconnect() end
                 return
             end
-            task.wait()
+            if not OPTIMIZE_CLASSES[v.ClassName] then
+                return
+            end
             optimizeObj(v)
         end)
     end
 end
 
+-- Tự động áp dụng cài đặt lưu từ trước nếu có
 if state.GraphicsLevel and state.GraphicsLevel ~= "Tắt" then
     task.spawn(function()
         task.wait(1.5)
@@ -1533,6 +1740,15 @@ TabQuest:Toggle({
     end
 })
 
+TabQuest:Toggle({
+    Title = "⚡ Siêu Tốc Nhiệm Vụ Mồi (Cắn câu là hủy & ném lại)",
+    Value = state.FastBaitQuest,
+    Callback = function(v)
+        state.FastBaitQuest = v
+        save()
+    end
+})
+
 TabQuest:Section({Title = "Position Farming"})
 TabQuest:Dropdown({
     Title = "Chọn đảo để Farm",
@@ -1549,13 +1765,33 @@ TabQuest:Dropdown({
 })
 
 TabQuest:Button({
-    Title = "Đặt vị trí hiện tại làm điểm câu",
+    Title = "Đặt vị trí hiện tại làm điểm câu (Ưu tiên Farm)",
     Callback = function()
         local char = getCharacter()
         if char and char:FindFirstChild("HumanoidRootPart") then
             CUSTOM_FARM_POS = char.HumanoidRootPart.Position
-            setTicketStatus("📍 Đã lưu điểm câu: " .. math.floor(CUSTOM_FARM_POS.X) .. ", " .. math.floor(CUSTOM_FARM_POS.Y) .. ", " .. math.floor(CUSTOM_FARM_POS.Z))
+            state.CustomFarmPos = {
+                X = math.floor(CUSTOM_FARM_POS.X),
+                Y = math.floor(CUSTOM_FARM_POS.Y),
+                Z = math.floor(CUSTOM_FARM_POS.Z)
+            }
+            save()
+            local msg = "📍 Đã lưu điểm câu tùy chỉnh: " .. state.CustomFarmPos.X .. ", " .. state.CustomFarmPos.Y .. ", " .. state.CustomFarmPos.Z
+            setTicketStatus(msg)
+            setEssenceStatus(msg)
         end
+    end
+})
+
+TabQuest:Button({
+    Title = "Hủy điểm câu tùy chỉnh (Quay về dùng Đảo farm)",
+    Callback = function()
+        CUSTOM_FARM_POS = nil
+        state.CustomFarmPos = nil
+        save()
+        local msg = "🔄 Đã hủy điểm câu tùy chỉnh. Farm tại: " .. (state.SelectedIsland or "Beginning Isle")
+        setTicketStatus(msg)
+        setEssenceStatus(msg)
     end
 })
 
@@ -1695,6 +1931,8 @@ TabTP:Button({
     end
 })
 
+--// SETTINGS TAB (GIẢM ĐỒ HỌA)
+TabSettings:Section({Title = "Giảm Đồ Họa"})
 
 local graphicsLevels = {"Tắt", "Trung bình", "Cao", "Cực cao", "Siêu cực đại"}
 TabSettings:Dropdown({
@@ -1721,20 +1959,7 @@ TabSettings:Button({
 
 --// LOOPS & LOGIC
 
--- 1. Lock Bar
-local bar = mainGui:WaitForChild("Fishing"):WaitForChild("BarFrame"):WaitForChild("Bar")
-local renderConn
-renderConn = RunService.RenderStepped:Connect(function()
-    if _G.FishingMasterSession ~= currentSession then
-        renderConn:Disconnect()
-        return
-    end
-    if state.LockBar and bar and bar.Visible then
-        bar.Position = UDim2.fromScale(0.5, 0.5)
-    end
-end)
-
--- 2. AUTO MINIGAMES ENGINE (SLAM & CHARGE, RHYTHM, BOSS PHASE 2)
+-- 1 & 2. AUTO MINIGAMES ENGINE (LOCK BAR, SLAM & CHARGE, RHYTHM, BOSS PHASE 2)
 task.spawn(function()
     local events = ReplicatedStorage:WaitForChild("Events")
     local rhythmHitRem = events:FindFirstChild("RhythmHit")
@@ -1744,6 +1969,7 @@ task.spawn(function()
     local trashCan = fishingFrame:WaitForChild("TrashCan")
     local rhythmFrame = fishingFrame:FindFirstChild("Rhythm")
     local bossFightBar = fishingFrame:FindFirstChild("BossFightBar")
+    local bar = fishingFrame:WaitForChild("BarFrame"):WaitForChild("Bar")
 
     -- Mapping phím cho các lane của Rhythm Minigame
     local laneKeyMap = {
@@ -1808,17 +2034,18 @@ task.spawn(function()
         end
     end)
 
-    -- [C & D]: Xử lý Rhythm Minigame & Boss Fight Bar qua RenderStepped
+    -- [C & D]: Xử lý LockBar, Rhythm Minigame & Boss Fight Bar qua một RenderStepped duy nhất
     local lastRhythmHit = 0
     local lastBossHit = 0
     local bossHitCooldown = 0.10
 
-    -- Theo dõi Rhythm
+    -- Cache Rhythm
     local rhythmMissCount = 0
     local isRhythmActive = false
     local ignoredRhythmNotes = {}
+    local cachedRhythmLanes = {}
 
-    -- Theo dõi Boss Phase 2
+    -- Cache Boss Phase 2
     local bossMissCount = 0
     local isBossActive = false
     local bossCycleMissed = false
@@ -1826,6 +2053,9 @@ task.spawn(function()
     local prevBarX = 0
     local bossHitIndex = 1
     local lastHitboxPos = nil
+    local cachedBossBar = nil
+    local cachedBossHitbox = nil
+    local cachedBossBadHitbox = nil
 
     local miniConn
     miniConn = RunService.RenderStepped:Connect(function()
@@ -1834,67 +2064,88 @@ task.spawn(function()
             return
         end
 
+        -- 1. Lock Bar
+        if state.LockBar and bar and bar.Visible then
+            bar.Position = UDim2.fromScale(0.5, 0.5)
+        end
+
+        local rhythmActive = state.AutoRhythm and rhythmFrame and rhythmFrame.Visible
+        local bossActive = state.AutoBossPhase2 and bossFightBar and bossFightBar.Visible
+
+        -- Nếu cả 2 minigame đều không bật/hiển thị -> thoát ngay lập tức (tiết kiệm CPU tối đa)
+        if not rhythmActive and not bossActive then
+            isRhythmActive = false
+            isBossActive = false
+            return
+        end
+
         local isSafe = (state.MinigameMode ~= "Fast")
 
         -- [C] Auto Rhythm Minigame (Nốt nhạc Boss)
-        if state.AutoRhythm and rhythmFrame and rhythmFrame.Visible then
+        if rhythmActive then
             if not isRhythmActive then
                 isRhythmActive = true
                 rhythmMissCount = 0
                 ignoredRhythmNotes = {}
+                cachedRhythmLanes = {}
+                for _, lane in ipairs(rhythmFrame:GetChildren()) do
+                    if string.find(lane.Name, "Progression") then
+                        local barF = lane:FindFirstChild("BarFrame")
+                        table.insert(cachedRhythmLanes, {
+                            Lane = lane,
+                            TargetY = barF and barF.Position.Y.Scale or 0.85,
+                            Key = laneKeyMap[lane.Name]
+                        })
+                    end
+                end
             end
 
             local now = tick()
             local rhythmCooldown = 0.20
 
-            for _, lane in ipairs(rhythmFrame:GetChildren()) do
-                if string.find(lane.Name, "Progression") then
-                    local barF = lane:FindFirstChild("BarFrame")
-                    local targetY = barF and barF.Position.Y.Scale or 0.85
-                    local keyCode = laneKeyMap[lane.Name]
+            for _, laneData in ipairs(cachedRhythmLanes) do
+                local lane = laneData.Lane
+                local targetY = laneData.TargetY
+                local keyCode = laneData.Key
 
-                    for _, child in ipairs(lane:GetChildren()) do
-                        if child.Name == "Note_FX" and child.Visible then
-                            local curY = child.Position.Y.Scale
-                            -- Bỏ qua nốt bẫy (màu đỏ: game đặt Color3.fromRGB(255, 40, 40), bấm trúng sẽ bị tính miss và trừ máu)
-                            local bg = child.BackgroundColor3
-                            local isTrap = (bg.R > 0.75 and bg.G < 0.45 and bg.B < 0.45)
-                            if not isTrap and (child:IsA("ImageLabel") or child:IsA("ImageButton")) then
-                                local ic = child.ImageColor3
-                                if ic.R > 0.75 and ic.G < 0.45 and ic.B < 0.45 then
-                                    isTrap = true
-                                end
+                for _, child in ipairs(lane:GetChildren()) do
+                    if child.Name == "Note_FX" and child.Visible then
+                        local curY = child.Position.Y.Scale
+                        -- Bỏ qua nốt bẫy (màu đỏ)
+                        local bg = child.BackgroundColor3
+                        local isTrap = (bg.R > 0.75 and bg.G < 0.45 and bg.B < 0.45)
+                        if not isTrap and (child:IsA("ImageLabel") or child:IsA("ImageButton")) then
+                            local ic = child.ImageColor3
+                            if ic.R > 0.75 and ic.G < 0.45 and ic.B < 0.45 then
+                                isTrap = true
                             end
+                        end
 
-                            if isTrap then
-                                ignoredRhythmNotes[child] = true -- Tuyệt đối không bấm nốt đỏ, bỏ qua để nốt tự trôi đi
-                            else
-                                -- Cả 2 chế độ đều bắt buộc nốt phải chạm vạch (targetY) mới hit để tránh server phát hiện ban
-                                local hitRangeMin = isSafe and (targetY - 0.08) or (targetY - 0.05)
-                                local hitRangeMax = isSafe and (targetY + 0.10) or (targetY + 0.14)
+                        if isTrap then
+                            ignoredRhythmNotes[child] = true
+                        else
+                            local hitRangeMin = isSafe and (targetY - 0.08) or (targetY - 0.05)
+                            local hitRangeMax = isSafe and (targetY + 0.10) or (targetY + 0.14)
 
-                                if curY >= hitRangeMin and curY <= hitRangeMax then
-                                    if not ignoredRhythmNotes[child] then
-                                        if not isSafe then
-                                            -- Chế độ Siêu Tốc (Fast): Chạm vạch là hit ngay tức khắc, bắn Remote + Click, 0ms delay, 0 lần miss
+                            if curY >= hitRangeMin and curY <= hitRangeMax then
+                                if not ignoredRhythmNotes[child] then
+                                    if not isSafe then
+                                        ignoredRhythmNotes[child] = true
+                                        if rhythmHitRem then
+                                            rhythmHitRem:FireServer("hit")
+                                        end
+                                        hitRhythm(lane, keyCode)
+                                    else
+                                        if rhythmMissCount < 3 and math.random(1, 8) == 1 then
+                                            rhythmMissCount = rhythmMissCount + 1
                                             ignoredRhythmNotes[child] = true
-                                            if rhythmHitRem then
-                                                rhythmHitRem:FireServer("hit")
-                                            end
-                                            hitRhythm(lane, keyCode)
-                                        else
-                                            -- Chế độ An Toàn (Safe): Phản xạ tự nhiên (40ms - 80ms), cho phép miss tối đa 3 lần (không click khi sai)
-                                            if rhythmMissCount < 3 and math.random(1, 8) == 1 then
-                                                rhythmMissCount = rhythmMissCount + 1
-                                                ignoredRhythmNotes[child] = true -- Bỏ qua nốt này, để trôi tự nhiên (không click khi sai)
-                                            elseif now - lastRhythmHit >= rhythmCooldown then
-                                                lastRhythmHit = now
-                                                task.spawn(function()
-                                                    local rxDelay = math.random(4, 8) / 100
-                                                    task.wait(rxDelay)
-                                                    hitRhythm(lane, keyCode)
-                                                end)
-                                            end
+                                        elseif now - lastRhythmHit >= rhythmCooldown then
+                                            lastRhythmHit = now
+                                            task.spawn(function()
+                                                local rxDelay = math.random(4, 8) / 100
+                                                task.wait(rxDelay)
+                                                hitRhythm(lane, keyCode)
+                                            end)
                                         end
                                     end
                                 end
@@ -1908,7 +2159,7 @@ task.spawn(function()
         end
 
         -- [D] Auto Boss Fight Bar (Boss Phase 2)
-        if state.AutoBossPhase2 and bossFightBar and bossFightBar.Visible then
+        if bossActive then
             if not isBossActive then
                 isBossActive = true
                 bossMissCount = 0
@@ -1916,11 +2167,14 @@ task.spawn(function()
                 prevBarX = 0
                 bossHitIndex = 1
                 lastHitboxPos = nil
+                cachedBossBar = bossFightBar:FindFirstChild("Bar")
+                cachedBossHitbox = bossFightBar:FindFirstChild("Hitbox")
+                cachedBossBadHitbox = bossFightBar:FindFirstChild("HitboxBad")
             end
 
-            local bBar = bossFightBar:FindFirstChild("Bar")
-            local hitbox = bossFightBar:FindFirstChild("Hitbox")
-            local badHitbox = bossFightBar:FindFirstChild("HitboxBad")
+            local bBar = cachedBossBar
+            local hitbox = cachedBossHitbox
+            local badHitbox = cachedBossBadHitbox
 
             if bBar and hitbox and hitbox.Visible then
                 local curHitboxX = hitbox.Position.X.Scale
@@ -1940,7 +2194,6 @@ task.spawn(function()
                 local barAnchorX = bBar.AnchorPoint.X
                 local realBarCenter = bBar.Position.X.Scale + (0.5 - barAnchorX) * barSizeX
 
-                -- Theo dõi hướng di chuyển của thanh trượt để nhận diện chu kỳ lướt mới
                 local currentDir = lastBarDir
                 if prevBarX ~= 0 then
                     if realBarCenter > prevBarX then
@@ -1952,17 +2205,15 @@ task.spawn(function()
 
                 if currentDir ~= lastBarDir then
                     lastBarDir = currentDir
-                    bossCycleMissed = false -- Đổi chiều di chuyển -> reset chu kỳ
+                    bossCycleMissed = false
                 end
                 prevBarX = realBarCenter
 
                 local minX, maxX
                 if isSafe then
-                    -- Chế độ An Toàn: Chỉ bấm trong vùng an toàn 20% - 80% của hitbox
                     minX = realHbLeft + hbSizeX * 0.20
                     maxX = realHbRight - hbSizeX * 0.20
                 else
-                    -- Chế độ Siêu Tốc: Bấm ngay khi thanh trượt chạm hitbox (4% - 96%)
                     minX = realHbLeft + hbSizeX * 0.04
                     maxX = realHbRight - hbSizeX * 0.04
                 end
@@ -1982,17 +2233,15 @@ task.spawn(function()
 
                     if not inBad then
                         if isSafe then
-                            -- Chế độ An Toàn: Cho phép miss tối đa 3 lần, khi miss KHÔNG click gì cả
                             if bossMissCount < 3 and not bossCycleMissed and math.random(1, 6) == 1 then
                                 bossMissCount = bossMissCount + 1
-                                bossCycleMissed = true -- Bỏ qua lượt này tự nhiên, không click khi sai
+                                bossCycleMissed = true
                             elseif not bossCycleMissed and tick() - lastBossHit >= bossHitCooldown then
                                 lastBossHit = tick()
                                 bossHitCooldown = math.random(10, 15) / 100
                                 doVimClick(mobileFishingBtn)
                             end
                         else
-                            -- Chế độ Siêu Tốc: Dùng Remote BossPhase2Action xử lý nhanh tốc độ (0.04s - 0.06s), không miss
                             if tick() - lastBossHit >= bossHitCooldown then
                                 lastBossHit = tick()
                                 bossHitCooldown = math.random(4, 6) / 100
@@ -2026,14 +2275,178 @@ task.spawn(function()
     end
 end)
 
--- 4. Fishing & Skill Loop
+-- ==============================================================================
+-- 4. AUTO SKILL & COMBAT ENGINE (Normal Fishing, Weather Bosses & Special Bosses Enzo, Long Diaohai)
+-- ==============================================================================
+
+local cachedSkillButtons = {}
+local function getSkillButton(key)
+    local data = cachedSkillButtons[key]
+    if data and data.Btn and data.Btn.Parent then
+        return data
+    end
+    local mGui = getMainGui()
+    local fGui = mGui and mGui:FindFirstChild("Fishing")
+    local sFrame = fGui and fGui:FindFirstChild("SkillButton") and fGui.SkillButton:FindFirstChild("Frame")
+    local btn = sFrame and sFrame:FindFirstChild(key)
+    if btn then
+        cachedSkillButtons[key] = {
+            Btn = btn,
+            CD = btn:FindFirstChild("CD")
+        }
+        return cachedSkillButtons[key]
+    end
+    return nil
+end
+
+-- Hàm kiểm tra kỹ năng Z, X, C, V có đang sẵn sàng (dùng được) hay đang hồi chiêu (cooldown)
+local function isSkillReady(key, currentChar)
+    local char = currentChar or getCharacter()
+    if not char then return false end
+
+    -- Không dùng skill nếu character đang bị khóa chiêu toàn cục (stun / debuff từ server)
+    if char:GetAttribute("SkillLocked") == true then
+        return false
+    end
+
+    -- 1. Kiểm tra trên UI SkillButton.Frame (O(1) từ cache)
+    local btnData = getSkillButton(key)
+    if btnData then
+        -- Nếu nút bị ẩn (cần câu không trang bị chiêu ở slot này) -> bỏ qua
+        if btnData.Btn and btnData.Btn.Visible == false then
+            return false
+        end
+        -- Nếu đang đếm ngược hồi chiêu -> bỏ qua
+        if btnData.CD and btnData.CD.Visible == true then
+            return false
+        end
+    end
+
+    -- 2. Kiểm tra trong Character.Skills
+    local skillsFolder = char:FindFirstChild("Skills")
+    if skillsFolder then
+        for _, skillVal in ipairs(skillsFolder:GetChildren()) do
+            if skillVal:IsA("NumberValue") and skillVal:GetAttribute("Key") == key then
+                if skillVal.Value > 0 then
+                    return false
+                end
+                local using = skillVal:GetAttribute("UsingSkill")
+                if using and using > 0 then
+                    return false
+                end
+                break
+            end
+        end
+    end
+
+    return true
+end
+
+-- Hàm lấy % máu hiện tại của người chơi khi đang kéo cá / đánh Boss
+local cachedFishingGui = nil
+local function getPlayerFishingHealthPercent(fishObj, cachedHealthVal, cachedMaxHp)
+    -- 1. Đọc trực tiếp từ con trỏ đã cache khi cá cắn câu
+    if cachedHealthVal and cachedMaxHp and cachedMaxHp > 0 then
+        return (cachedHealthVal.Value / cachedMaxHp) * 100
+    end
+
+    -- 2. Tra cứu NumberValue PlayerHealth trực tiếp qua tag O(1)
+    local target = fishObj or findMyFish()
+    if target then
+        local child = cachedHealthVal or target:FindFirstChild(myPlayerHealthTag)
+        if child and child:IsA("NumberValue") then
+            local maxHp = cachedMaxHp or child:GetAttribute("MaxHP")
+            if not maxHp or maxHp <= 0 then
+                local mGui = getMainGui()
+                local fGui = mGui and mGui:FindFirstChild("Fishing")
+                local hpPlayer = fGui and fGui:FindFirstChild("HPPlayer")
+                local progBar = hpPlayer and hpPlayer:FindFirstChild("ProgressionBar")
+                local valText = progBar and progBar:FindFirstChild("Value") and progBar.Value.Text
+                if valText and string.find(valText, "/") then
+                    local _, m = valText:match("(%d+)/(%d+)")
+                    maxHp = tonumber(m)
+                end
+            end
+            if maxHp and maxHp > 0 then
+                return (child.Value / maxHp) * 100
+            end
+        end
+    end
+
+    -- 3. Đọc từ UI HPPlayer của Fishing GUI
+    local mGui = getMainGui()
+    local hpPlayer = mGui and mGui:FindFirstChild("Fishing") and mGui.Fishing:FindFirstChild("HPPlayer")
+    if hpPlayer and hpPlayer.Visible then
+        local progBar = hpPlayer:FindFirstChild("ProgressionBar")
+        local bar = progBar and progBar:FindFirstChild("Bar")
+        if bar then
+            local scale = math.clamp(bar.Size.X.Scale, 0, 1)
+            return scale * 100
+        end
+    end
+
+    -- 4. Fallback theo Humanoid
+    local char = getCharacter()
+    local hum = char and char:FindFirstChild("Humanoid")
+    if hum and hum.MaxHealth > 0 then
+        return (hum.Health / hum.MaxHealth) * 100
+    end
+
+    return 100
+end
+
+-- 4.1. VÒNG LẶP AUTO SKILL & HỒI MÁU ĐỘC LẬP (Hoạt động cho cả Câu Cá thường, Boss Thời Tiết & Boss Enzo, Long Diaohai)
 task.spawn(function()
     local events = ReplicatedStorage:WaitForChild("Events")
     local skillRem = events:WaitForChild("UseSkill")
+    local skillKeys = {"Z", "X", "C", "V"}
+
+    while _G.FishingMasterSession == currentSession do
+        if state.AutoSkill and isPlayerInFishingFight() then
+            local currentFish = findMyFish()
+            local char = getCharacter()
+
+            -- 1. Cơ chế TỰ ĐỘNG HỒI MÁU KHẨN CẤP
+            if state.AutoHealSkill and state.HealSkillKey and state.HealSkillKey ~= "" then
+                local currentHPPercent = getPlayerFishingHealthPercent(currentFish)
+                local threshold = tonumber(state.HealHPThreshold) or 40
+
+                if currentHPPercent <= threshold then
+                    -- Máu đang dưới ngưỡng! Kích hoạt ngay chiêu hồi máu nếu đã sẵn sàng
+                    if isSkillReady(state.HealSkillKey, char) then
+                        skillRem:FireServer(state.HealSkillKey)
+                        task.wait(0.2)
+                    end
+                end
+            end
+
+            -- 2. Cơ chế THI TRIỂN TẤN CÔNG (theo dõi chiêu nào dùng được, chiêu nào đang hồi)
+            for _, key in ipairs(skillKeys) do
+                -- Nếu đang bật hồi máu: Chiêu hồi máu ĐƯỢC GIỮ LẠI, KHÔNG dùng để tấn công
+                if state.AutoHealSkill and key == state.HealSkillKey then
+                    continue
+                end
+
+                -- Chỉ thi triển chiêu có thể dùng (đã hồi xong, không bị cooldown hay lock)
+                if isSkillReady(key, char) then
+                    skillRem:FireServer(key)
+                    task.wait(0.18)
+                end
+            end
+
+            task.wait(0.15)
+        else
+            task.wait(0.3)
+        end
+    end
+end)
+
+-- 4.2. VÒNG LẶP CÂU CÁ (Fishing Loop)
+task.spawn(function()
+    local events = ReplicatedStorage:WaitForChild("Events")
     local fishRem = events:WaitForChild("Fishing")
     local hotbarRem = events:WaitForChild("ToggleHotbar")
     local minigameRem = events:WaitForChild("FishingMinigame")
-    local skillKeys = {"Z", "X", "C", "V"}
 
     local currentHookedFishName = nil
     minigameRem.OnClientEvent:Connect(function(u40)
@@ -2046,7 +2459,8 @@ task.spawn(function()
         if currentHookedFishName and currentHookedFishName ~= "" then
             return currentHookedFishName
         end
-        local fGui = mainGui:FindFirstChild("Fishing")
+        local mGui = getMainGui()
+        local fGui = mGui and mGui:FindFirstChild("Fishing")
         local progBar = fGui and fGui:FindFirstChild("ProgressionBar")
         local fishNameLbl = progBar and progBar:FindFirstChild("FishName")
         if fishNameLbl and fishNameLbl.Text ~= "" and fishNameLbl.Text ~= "Fish" then
@@ -2055,98 +2469,14 @@ task.spawn(function()
         return nil
     end
 
-    -- Hàm kiểm tra kỹ năng Z, X, C, V có đang sẵn sàng (dùng được) hay đang hồi chiêu (cooldown)
-    local function isSkillReady(key)
-        local char = getCharacter()
-        if not char then return false end
-
-        -- Không dùng skill nếu character đang bị khóa chiêu toàn cục
-        if char:GetAttribute("SkillLocked") == true then
-            return false
-        end
-
-        -- 1. Kiểm tra trên UI SkillButton.Frame
-        local fGui = mainGui:FindFirstChild("Fishing")
-        local skillBtnFrame = fGui and fGui:FindFirstChild("SkillButton") and fGui.SkillButton:FindFirstChild("Frame")
-        local btn = skillBtnFrame and skillBtnFrame:FindFirstChild(key)
-        if btn then
-            -- Nếu nút không visible -> Cần câu không gắn skill ở slot này
-            if not btn.Visible then
-                return false
-            end
-            -- Nếu CD frame đang hiển thị -> skill đang trong thời gian hồi chiêu
-            local cd = btn:FindFirstChild("CD")
-            if cd and cd.Visible then
-                return false
-            end
-        end
-
-        -- 2. Kiểm tra trong Character.Skills
-        local skillsFolder = char:FindFirstChild("Skills")
-        if skillsFolder then
-            for _, skillVal in ipairs(skillsFolder:GetChildren()) do
-                if skillVal:IsA("NumberValue") and skillVal:GetAttribute("Key") == key then
-                    if skillVal.Value > 0 then
-                        return false
-                    end
-                    local using = skillVal:GetAttribute("UsingSkill")
-                    if using and using > 0 then
-                        return false
-                    end
-                end
-            end
-        end
-
-        return true
-    end
-
-    -- Hàm lấy % máu hiện tại của người chơi khi đang kéo cá / boss
-    local function getPlayerFishingHealthPercent(fishObj)
-        -- 1. Đọc từ NumberValue PlayerHealth trong cá
-        if fishObj then
-            for _, child in ipairs(fishObj:GetChildren()) do
-                if string.find(child.Name, tostring(pId)) and string.find(child.Name, "PlayerHealth") and child:IsA("NumberValue") then
-                    local maxHp = child:GetAttribute("MaxHP")
-                    if not maxHp or maxHp <= 0 then
-                        local fGui = mainGui:FindFirstChild("Fishing")
-                        local hpPlayer = fGui and fGui:FindFirstChild("HPPlayer")
-                        local progBar = hpPlayer and hpPlayer:FindFirstChild("ProgressionBar")
-                        local valText = progBar and progBar:FindFirstChild("Value") and progBar.Value.Text
-                        if valText and string.find(valText, "/") then
-                            local _, m = valText:match("(%d+)/(%d+)")
-                            maxHp = tonumber(m)
-                        end
-                    end
-                    if maxHp and maxHp > 0 then
-                        return (child.Value / maxHp) * 100
-                    end
-                end
-            end
-        end
-
-        -- 2. Đọc từ UI HPPlayer của Fishing GUI
-        local fGui = mainGui:FindFirstChild("Fishing")
-        local hpPlayer = fGui and fGui:FindFirstChild("HPPlayer")
-        if hpPlayer and hpPlayer.Visible then
-            local progBar = hpPlayer:FindFirstChild("ProgressionBar")
-            local bar = progBar and progBar:FindFirstChild("Bar")
-            if bar then
-                local scale = math.clamp(bar.Size.X.Scale, 0, 1)
-                return scale * 100
-            end
-        end
-
-        -- 3. Fallback theo Humanoid
-        local char = getCharacter()
-        local hum = char and char:FindFirstChild("Humanoid")
-        if hum and hum.MaxHealth > 0 then
-            return (hum.Health / hum.MaxHealth) * 100
-        end
-
-        return 100
-    end
-
     while _G.FishingMasterSession == currentSession do
+        -- Nếu người chơi đang trong một trận chiến / đánh Boss (Enzo, Long Diaohai, hoặc kéo cá)
+        -- thì không ném cần đè lên, kiên nhẫn chờ trận đấu kết thúc
+        if isPlayerInFishingFight() then
+            task.wait(0.5)
+            continue
+        end
+
         local canFish = isFishingAllowed()
         if canFish then
             if not isHoldingRod() then
@@ -2221,104 +2551,89 @@ task.spawn(function()
                             if not hookedFishName then task.wait(0.05) end
                         end
 
-                        -- 2. Kiểm tra bộ lọc cá (Fish Filter & Weather Boss)
-                        local isWanted = true
-                        if weatherBossActive then
-                            -- Khi đang săn Boss Thời Tiết: CHỈ CÂU CÁC CON BOSS MỤC TIÊU HỢP LỆ TRÊN ĐẢO NÀY!
-                            if hookedFishName and not activeWeatherBossTargets[hookedFishName] then
-                                isWanted = false
-                            end
-                        elseif state.FishFilterEnabled and not (state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb) then
-                            local hasSelection = false
-                            if state.SelectedFishFilter then
-                                for _ in pairs(state.SelectedFishFilter) do
-                                    hasSelection = true
-                                    break
-                                end
-                            end
-
-                            if hasSelection then
-                                if hookedFishName and not state.SelectedFishFilter[hookedFishName] then
-                                    isWanted = false
-                                end
-                            end
-                        end
-
-                        -- Nếu KHÔNG PHẢI CÁ MONG MUỐN -> Đứt dây & Cất cần / Cầm lại
-                        if not isWanted then
-                            setFishFilterStatus("⏭️ Bỏ qua cá: " .. tostring(hookedFishName or "Không rõ") .. " -> Đứt dây & Thả lại...")
-                            if weatherBossActive then
-                                local targetBossNames = {}
-                                for bName in pairs(activeWeatherBossTargets) do
-                                    table.insert(targetBossNames, bName)
-                                end
-                                local bossNamesStr = #targetBossNames > 0 and table.concat(targetBossNames, ", ") or tostring(currentHuntingBoss or "Boss")
-                                setWeatherBossStatus("⏭️ Bỏ qua " .. tostring(hookedFishName or "cá rác") .. " -> Đang đợi: " .. bossNamesStr .. "...")
-                            end
-                            -- Cất cần (Lúc này đang cầm cần -> gọi ToggleHotbar sẽ cất cần -> game tự hủy minigame / cá biến mất)
+                        -- 1.5. CƠ CHẾ SIÊU TỐC LÀM NHIỆM VỤ DÙNG MỒI (USE BAIT FAST SKIP)
+                        -- Cá vừa cắn câu là game đã trừ 1 mồi và tính +1 lần dùng thành công!
+                        if shouldFastSkipForBaitQuest() then
+                            local msg = "⚡ Fast Bait: Cắn câu tính +1 mồi -> Hủy kéo & Thả lại siêu tốc!"
+                            setTicketStatus(msg)
+                            setEssenceStatus(msg)
+                            setDailyStatus("⚡ Fast Bait: +1 mồi -> Thả lại!")
                             pcall(function()
                                 hotbarRem:InvokeServer("1", nil)
                             end)
-                            task.wait(0.3)
-                            -- Cầm cần lại để chuẩn bị ném tiếp
+                            task.wait(0.2)
                             equipRod()
-                            task.wait(0.4)
+                            task.wait(0.3)
                             currentHookedFishName = nil
                         else
-                            -- ĐÚNG CÁ MONG MUỐN -> Bắt đầu câu & tung skill
-                            if hookedFishName then
-                                setFishFilterStatus("🎯 Đang câu: " .. hookedFishName)
+                            -- 2. Kiểm tra bộ lọc cá (Fish Filter & Weather Boss)
+                            local isWanted = true
+                            if weatherBossActive then
+                                -- Khi đang săn Boss Thời Tiết: CHỈ CÂU CÁC CON BOSS MỤC TIÊU HỢP LỆ TRÊN ĐẢO NÀY!
+                                if hookedFishName and not activeWeatherBossTargets[hookedFishName] then
+                                    isWanted = false
+                                end
+                            elseif state.FishFilterEnabled and not (state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb) then
+                                local hasSelection = false
+                                if state.SelectedFishFilter then
+                                    for _ in pairs(state.SelectedFishFilter) do
+                                        hasSelection = true
+                                        break
+                                    end
+                                end
+
+                                if hasSelection then
+                                    if hookedFishName and not state.SelectedFishFilter[hookedFishName] then
+                                        isWanted = false
+                                    end
+                                end
+                            end
+
+                            -- Nếu KHÔNG PHẢI CÁ MONG MUỐN -> Đứt dây & Cất cần / Cầm lại
+                            if not isWanted then
+                                setFishFilterStatus("⏭️ Bỏ qua cá: " .. tostring(hookedFishName or "Không rõ") .. " -> Đứt dây & Thả lại...")
                                 if weatherBossActive then
-                                    setWeatherBossStatus("🔥 ĐÃ CẮN CÂU: " .. hookedFishName .. "! Đang kéo boss...")
+                                    local targetBossNames = {}
+                                    for bName in pairs(activeWeatherBossTargets) do
+                                        table.insert(targetBossNames, bName)
+                                    end
+                                    local bossNamesStr = #targetBossNames > 0 and table.concat(targetBossNames, ", ") or tostring(currentHuntingBoss or "Boss")
+                                    setWeatherBossStatus("⏭️ Bỏ qua " .. tostring(hookedFishName or "cá rác") .. " -> Đang đợi: " .. bossNamesStr .. "...")
                                 end
-                            end
-
-                            local readyObj = targetFish:FindFirstChild("Ready")
-                            if readyObj then
-                                local waitReady = tick()
-                                repeat 
-                                    task.wait(0.1) 
-                                until readyObj.Value == true or not targetFish.Parent or (tick() - waitReady > 5)
+                                -- Cất cần (Lúc này đang cầm cần -> gọi ToggleHotbar sẽ cất cần -> game tự hủy minigame / cá biến mất)
+                                pcall(function()
+                                    hotbarRem:InvokeServer("1", nil)
+                                end)
+                                task.wait(0.3)
+                                -- Cầm cần lại để chuẩn bị ném tiếp
+                                equipRod()
+                                task.wait(0.4)
+                                currentHookedFishName = nil
                             else
-                                task.wait(3.1)
-                            end
-
-                            while targetFish and targetFish.Parent and isFishingAllowed() do
-                                if state.AutoSkill then
-                                    -- 1. Cơ chế TỰ ĐỘNG HỒI MÁU KHẨN CẤP
-                                    if state.AutoHealSkill and state.HealSkillKey and state.HealSkillKey ~= "" then
-                                        local currentHPPercent = getPlayerFishingHealthPercent(targetFish)
-                                        local threshold = tonumber(state.HealHPThreshold) or 40
-
-                                        if currentHPPercent <= threshold then
-                                            -- Máu đang dưới ngưỡng! Kích hoạt ngay chiêu hồi máu nếu đã sẵn sàng
-                                            if isSkillReady(state.HealSkillKey) then
-                                                skillRem:FireServer(state.HealSkillKey)
-                                                task.wait(0.2)
-                                            end
-                                        end
+                                -- ĐÚNG CÁ MONG MUỐN -> Bắt đầu câu & tung skill
+                                if hookedFishName then
+                                    setFishFilterStatus("🎯 Đang câu: " .. hookedFishName)
+                                    if weatherBossActive then
+                                        setWeatherBossStatus("🔥 ĐÃ CẮN CÂU: " .. hookedFishName .. "! Đang kéo boss...")
                                     end
-
-                                    -- 2. Cơ chế THI TRIỂN TẤN CÔNG (theo dõi chiêu nào dùng được, chiêu nào đang hồi)
-                                    for _, key in ipairs(skillKeys) do
-                                        -- Nếu đang bật hồi máu: Chiêu hồi máu ĐƯỢC GIỮ LẠI, KHÔNG dùng để tấn công
-                                        if state.AutoHealSkill and key == state.HealSkillKey then
-                                            continue
-                                        end
-
-                                        -- Chỉ thi triển chiêu có thể dùng (đã hồi xong, không bị cooldown hay lock)
-                                        if isSkillReady(key) then
-                                            skillRem:FireServer(key)
-                                            task.wait(0.18)
-                                        end
-                                    end
-
-                                    task.wait(0.15)
-                                else
-                                    task.wait(0.5)
                                 end
+
+                                local readyObj = targetFish:FindFirstChild("Ready")
+                                if readyObj then
+                                    local waitReady = tick()
+                                    repeat 
+                                        task.wait(0.1) 
+                                    until readyObj.Value == true or not targetFish.Parent or (tick() - waitReady > 5)
+                                else
+                                    task.wait(3.1)
+                                end
+
+                                -- Giữ nhịp kéo cá (kỹ năng & hồi máu được vòng lặp độc lập Auto Skill tự động thi triển song song)
+                                while targetFish and targetFish.Parent and isFishingAllowed() do
+                                    task.wait(0.2)
+                                end
+                                currentHookedFishName = nil
                             end
-                            currentHookedFishName = nil
                         end
                     -- Quá 10s có ném cần nhưng không có cá cắn -> Đổi điểm đứng khác (chỉ khi làm Quest)
                     elseif isFishingAllowed() and not targetFish then
@@ -2357,8 +2672,12 @@ task.spawn(function()
                 setDailyStatus(dStatus.Summary)
 
                 if (dStatus.NeedFishing or dStatus.NeedBoss) and not state.AutoTicketQuest and not state.AutoEssenceOrb then
-                    currentFishingLocation = { Type = "Island", Name = "Battlefield Isle" }
-                    teleportToIslandShore("Battlefield Isle")
+                    if CUSTOM_FARM_POS and not dStatus.NeedBoss then
+                        travelToFarmSpot()
+                    else
+                        currentFishingLocation = { Type = "Island", Name = "Battlefield Isle" }
+                        teleportToIslandShore("Battlefield Isle")
+                    end
                     dailyQuestWantsFishing = true
                 elseif dStatus.AllCompleted and not state.AutoTicketQuest and not state.AutoEssenceOrb then
                     dailyQuestWantsFishing = false
@@ -2426,10 +2745,9 @@ task.spawn(function()
                 local statusMsg = qInfo.Text ~= "" and qInfo.Text or (qInfo.Progress .. "/" .. qInfo.Goal)
 
                 if not targetData.CanFishNow then
-                    local farmIsland = state.SelectedIsland or "Beginning Isle"
-                    setTicketStatus("⏳ [" .. statusMsg .. "] Chờ " .. targetData.RequiredWeather .. " -> Farm tại: " .. farmIsland)
-                    currentFishingLocation = { Type = "Island", Name = farmIsland }
-                    teleportToIslandShore(farmIsland)
+                    local destName = CUSTOM_FARM_POS and "Điểm câu tùy chỉnh" or (state.SelectedIsland or "Beginning Isle")
+                    setTicketStatus("⏳ [" .. statusMsg .. "] Chờ " .. targetData.RequiredWeather .. " -> Farm tại: " .. destName)
+                    travelToFarmSpot()
                     isInteractingNPC = false
                     ticketQuestWantsFishing = true
                     task.wait(2)
@@ -2446,10 +2764,9 @@ task.spawn(function()
             -- [TRƯỜNG HỢP C]: Không có nhiệm vụ nào trong người -> Lúc này mới kiểm tra Cooldown
             local cd = getQuestCooldown()
             if cd > 0 then
-                local farmIsland = state.SelectedIsland or "Beginning Isle"
-                setTicketStatus("⏳ Hồi vé: " .. cd .. "s -> Đang farm tại: " .. farmIsland)
-                currentFishingLocation = { Type = "Island", Name = farmIsland }
-                teleportToIslandShore(farmIsland)
+                local destName = CUSTOM_FARM_POS and "Điểm câu tùy chỉnh" or (state.SelectedIsland or "Beginning Isle")
+                setTicketStatus("⏳ Hồi vé: " .. cd .. "s -> Đang farm tại: " .. destName)
+                travelToFarmSpot()
                 isInteractingNPC = false
                 ticketQuestWantsFishing = true
                 task.wait(1.5)
@@ -2515,10 +2832,9 @@ task.spawn(function()
                 local statusMsg = qInfo.Text ~= "" and qInfo.Text or (qInfo.Progress .. "/" .. qInfo.Goal)
 
                 if not targetData.CanFishNow then
-                    local farmIsland = state.SelectedIsland or "Beginning Isle"
-                    setEssenceStatus("⏳ [" .. statusMsg .. "] Chờ " .. (targetData.RequiredWeather or "thời tiết") .. " -> Farm tại: " .. farmIsland)
-                    currentFishingLocation = { Type = "Island", Name = farmIsland }
-                    teleportToIslandShore(farmIsland)
+                    local destName = CUSTOM_FARM_POS and "Điểm câu tùy chỉnh" or (state.SelectedIsland or "Beginning Isle")
+                    setEssenceStatus("⏳ [" .. statusMsg .. "] Chờ " .. (targetData.RequiredWeather or "thời tiết") .. " -> Farm tại: " .. destName)
+                    travelToFarmSpot()
                     isInteractingNPC = false
                     essenceOrbWantsFishing = true
                     task.wait(2)
