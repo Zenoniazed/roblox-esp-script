@@ -77,7 +77,7 @@ local activeWeatherBossTargets = {}
 local setWeatherBossStatus = function(msg) end
 
 -- Bãi Boss mặc định
-local DEFAULT_BOSS_ISLAND = "Battlefield Isle"
+local DEFAULT_BOSS_ISLAND = "Beginning Isle"
 local CUSTOM_FARM_POS = nil
 
 -- Vị trí câu hiện tại
@@ -322,6 +322,16 @@ local function equipRod()
     end)
 end
 
+local function unequipRod()
+    if not isHoldingRod() then return end
+    local events = ReplicatedStorage:WaitForChild("Events")
+    local hotbarRemote = events:WaitForChild("ToggleHotbar")
+    pcall(function()
+        hotbarRemote:InvokeServer("1", nil)
+    end)
+    task.wait(0.2)
+end
+
 -- Bộ điều khiển quyết định khi nào ĐƯỢC PHÉP câu
 local function isFishingAllowed()
     if state.AutoWeatherBoss and weatherBossActive then
@@ -339,7 +349,67 @@ local function isFishingAllowed()
     return state.AutoFishing == true
 end
 
---// 🌊 MULTI-SHORELINE ENGINE
+--// 🌊 HÀM KIỂM TRA BỜ BIỂN HỢP LỆ (LOẠI TRỪ 100% CÁC HỐ NƯỚC NHỎ, AO, VŨNG NƯỚC NỘI ĐỊA)
+local function isValidOceanShoreSpot(standPos, dir, waterLevel, rayParams, origin)
+    -- 1. Khoảng cách tới tâm đảo: bỏ qua các vũng ao trung tâm đảo
+    local distToSpawn = (standPos - origin).Magnitude
+    if distToSpawn < 25 then
+        return false
+    end
+
+    -- 2. Kiểm tra mặt đất dưới chân chỗ đứng
+    local groundRay = workspace:Raycast(standPos + Vector3.new(0, 5, 0), Vector3.new(0, -15, 0), rayParams)
+    if not groundRay then return false end
+
+    local groundY = groundRay.Position.Y
+    -- Đất phải cao hơn mặt nước biển ít nhất 1.0 studs, nhưng không được là vách núi quá cao (> 22 studs)
+    if groundY < (waterLevel + 1.0) or groundY > (waterLevel + 22) then
+        return false
+    end
+
+    -- 3. Kiểm tra đất phía sau lưng (hướng về tâm đảo 8 studs): phải có nền đất vững chắc của hòn đảo
+    local backPos = standPos - dir * 8 + Vector3.new(0, 5, 0)
+    local backRay = workspace:Raycast(backPos, Vector3.new(0, -15, 0), rayParams)
+    if not backRay or backRay.Position.Y < (waterLevel + 0.8) then
+        return false
+    end
+
+    -- 4. KIỂM TRA MẶT NƯỚC PHÍA TRƯỚC MẶT (BẮT BUỘC LÀ ĐẠI DƯƠNG RỘNG MỞ, KHÔNG PHẢI HỐ/AO NHỎ)
+    -- Nếu là hố nước nhỏ / ao suối trong lòng đảo:
+    -- Chỉ cần đi ra trước mặt 15 - 45 studs là sẽ va phải bờ đất phía bên kia của cái hố!
+    -- Biển lớn thật sự thì phía trước mặt 18m, 40m, 70m ĐỀU LÀ NƯỚC BIỂN MÊNH MÔNG (không có đất nổi lên)!
+    local checkDists = {18, 40, 70}
+    for _, fDist in ipairs(checkDists) do
+        local forwardSample = standPos + dir * fDist + Vector3.new(0, 15, 0)
+        local fHit = workspace:Raycast(forwardSample, Vector3.new(0, -45, 0), rayParams)
+
+        if fHit then
+            -- Nếu phát hiện có vật thể/đất nổi cao hơn mặt nước biển -> Bị chắn bởi bờ đất hoặc vách đá bên kia!
+            if fHit.Position.Y > (waterLevel + 1.5) then
+                return false -- ❌ Đây là hố nước/ao nhỏ hoặc bị chắn bờ đối diện!
+            end
+
+            -- Nếu trúng Part nước: kiểm tra kích thước Part nước đó
+            local hitPart = fHit.Instance
+            if hitPart and hitPart:IsA("BasePart") then
+                -- Nếu là part nước có kích thước quá nhỏ (vũng nước/puddle nhân tạo)
+                if hitPart.Size.X < 20 and hitPart.Size.Z < 20 then
+                    return false -- ❌ Vũng nước nhỏ
+                end
+            end
+        end
+    end
+
+    -- 5. Kiểm tra tầm ném cần ngang ngực người chơi ra 25 studs xem có vách đá dựng đứng chắn không
+    local chestRay = workspace:Raycast(standPos + Vector3.new(0, 2.5, 0), dir * 25, rayParams)
+    if chestRay and chestRay.Position.Y > (waterLevel + 1.5) then
+        return false -- ❌ Vách đá chắn tầm ném
+    end
+
+    return true
+end
+
+--// 🌊 MULTI-SHORELINE ENGINE (TỰ ĐỘNG DÒ TÌM BỜ BIỂN ĐẠI DƯƠNG, BỎ QUA HỐ NƯỚC NHỎ)
 local function getAllShorelinesForIsland(islandName)
     if ShorelineSpots[islandName] and #ShorelineSpots[islandName] > 0 then
         return ShorelineSpots[islandName]
@@ -363,45 +433,85 @@ local function getAllShorelinesForIsland(islandName)
                 end
             end
         end
-    end
-
-    local rayParams = RaycastParams.new()
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-    local char = getCharacter()
-    if char then
-        rayParams.FilterDescendantsInstances = {char}
-    end
-
-    local spots = {}
-
-    for angleDeg = 0, 337.5, 22.5 do
-        local rad = math.rad(angleDeg)
-        local dir = Vector3.new(math.cos(rad), 0, math.sin(rad))
-        local lastLandPos = nil
-
-        for dist = 15, 350, 10 do
-            local samplePos = origin + dir * dist + Vector3.new(0, 30, 0)
-            local hit = workspace:Raycast(samplePos, Vector3.new(0, -80, 0), rayParams)
-
-            if hit and hit.Position.Y > (waterLevel + 1.2) then
-                lastLandPos = hit.Position
-            else
-                if lastLandPos then
-                    local distToSpawn = (lastLandPos - origin).Magnitude
-                    if distToSpawn >= 20 then
-                        local standPos = lastLandPos + Vector3.new(0, 3.2, 0)
-                        local lookTarget = standPos + dir * 30
-                        local spotCF = CFrame.lookAt(standPos, Vector3.new(lookTarget.X, standPos.Y, lookTarget.Z))
-                        table.insert(spots, spotCF)
-                    end
-                end
-                break
+        if waterLevel == 0 then
+            local anyWater = ocean:FindFirstChildWhichIsA("BasePart", true)
+            if anyWater then
+                waterLevel = anyWater.Position.Y + (anyWater.Size.Y * 0.5)
             end
         end
     end
 
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    local filterList = {}
+    local char = getCharacter()
+    if char then table.insert(filterList, char) end
+    local fishes = workspace:FindFirstChild("Fishes")
+    if fishes then table.insert(filterList, fishes) end
+    local boat = workspace:FindFirstChild("Boat")
+    if boat then table.insert(filterList, boat) end
+    rayParams.FilterDescendantsInstances = filterList
+
+    local spots = {}
+
+    -- Quét 16 góc quay quanh hòn đảo (mỗi góc 22.5 độ)
+    for angleDeg = 0, 337.5, 22.5 do
+        local rad = math.rad(angleDeg)
+        local dir = Vector3.new(math.cos(rad), 0, math.sin(rad))
+        local foundSpot = nil
+
+        -- PHƯƠNG PHÁP 1: QUÉT TỪ NGOÀI ĐẠI DƯƠNG VÀO TÂM ĐẢO (Reverse Scan từ 420 studs về 30 studs)
+        -- Quét từ đại dương xa đi vào đất liền sẽ gặp mép đất NGOÀI CÙNG của đảo đầu tiên.
+        -- Đảm bảo tuyệt đối không bao giờ bị dừng lại ở các hố nước hay vũng ao trong lòng đảo!
+        for dist = 420, 30, -10 do
+            local samplePos = origin + dir * dist + Vector3.new(0, 30, 0)
+            local hit = workspace:Raycast(samplePos, Vector3.new(0, -80, 0), rayParams)
+
+            if hit and hit.Position.Y > (waterLevel + 1.2) then
+                local candidatePos = hit.Position + Vector3.new(0, 3.2, 0)
+                if isValidOceanShoreSpot(candidatePos, dir, waterLevel, rayParams, origin) then
+                    local lookTarget = candidatePos + dir * 30
+                    foundSpot = CFrame.lookAt(candidatePos, Vector3.new(lookTarget.X, candidatePos.Y, lookTarget.Z))
+                    break
+                end
+            end
+        end
+
+        -- PHƯƠNG PHÁP 2: Nếu quét ngoài vào không tìm thấy, quét từ trong ra ngoài kết hợp bộ lọc đại dương
+        if not foundSpot then
+            local lastLand = nil
+            for dist = 30, 380, 10 do
+                local samplePos = origin + dir * dist + Vector3.new(0, 30, 0)
+                local hit = workspace:Raycast(samplePos, Vector3.new(0, -80, 0), rayParams)
+                if hit and hit.Position.Y > (waterLevel + 1.2) then
+                    lastLand = hit.Position
+                else
+                    if lastLand then
+                        local candidatePos = lastLand + Vector3.new(0, 3.2, 0)
+                        if isValidOceanShoreSpot(candidatePos, dir, waterLevel, rayParams, origin) then
+                            local lookTarget = candidatePos + dir * 30
+                            foundSpot = CFrame.lookAt(candidatePos, Vector3.new(lookTarget.X, candidatePos.Y, lookTarget.Z))
+                            break
+                        end
+                    end
+                end
+            end
+        end
+
+        if foundSpot then
+            table.insert(spots, foundSpot)
+        end
+    end
+
+    -- Fallback nếu không quét được điểm nào: tạo các điểm an toàn quanh Spawn hướng ra xa
     if #spots == 0 then
-        table.insert(spots, spawnPart.CFrame * CFrame.new(0, 5, 25))
+        for angleDeg = 0, 315, 90 do
+            local rad = math.rad(angleDeg)
+            local dir = Vector3.new(math.cos(rad), 0, math.sin(rad))
+            local standPos = origin + dir * 45 + Vector3.new(0, 4, 0)
+            local lookTarget = standPos + dir * 30
+            table.insert(spots, CFrame.lookAt(standPos, Vector3.new(lookTarget.X, standPos.Y, lookTarget.Z)))
+        end
     end
 
     ShorelineSpots[islandName] = spots
@@ -424,6 +534,7 @@ local function teleportToIslandShore(islandName, forceNext)
     if targetCFrame and char and char:FindFirstChild("HumanoidRootPart") then
         local hrp = char.HumanoidRootPart
         if forceNext or (hrp.Position - targetCFrame.Position).Magnitude > 25 then
+            unequipRod()
             hrp.CFrame = targetCFrame
             task.wait(0.5)
             return true
@@ -438,6 +549,7 @@ local function teleportToIslandSpawn(islandName)
     local spawnPart = sp and sp:FindFirstChild(islandName)
     local char = getCharacter()
     if spawnPart and char and char:FindFirstChild("HumanoidRootPart") then
+        unequipRod()
         local targetCF = spawnPart:IsA("Model") and spawnPart:GetPivot() or spawnPart.CFrame
         char.HumanoidRootPart.CFrame = targetCF + Vector3.new(0, 3, 0)
         return true
@@ -449,6 +561,7 @@ local function teleportToPos(targetPos)
     local char = getCharacter()
     if char and char:FindFirstChild("HumanoidRootPart") then
         if (char.HumanoidRootPart.Position - targetPos).Magnitude > 25 then
+            unequipRod()
             char.HumanoidRootPart.CFrame = CFrame.new(targetPos)
             task.wait(1)
         end
@@ -464,11 +577,12 @@ local function relocateBossOrCustomPos(basePos)
 end
 
 local function relocateCurrentFishingSpot()
+    unequipRod()
     if currentFishingLocation.Type == "Boss" then
         if currentFishingLocation.Name then
             teleportToIslandShore(currentFishingLocation.Name, true)
         else
-            teleportToIslandShore("Battlefield Isle", true)
+            teleportToIslandShore(state.SelectedIsland or "Beginning Isle", true)
         end
     elseif currentFishingLocation.Type == "Default" then
         relocateBossOrCustomPos(currentFishingLocation.Position or CUSTOM_FARM_POS)
@@ -539,7 +653,7 @@ local function analyzeQuestTarget(questText)
         end
         return {
             TargetType = "Island",
-            Destination = "Battlefield Isle",
+            Destination = state.SelectedIsland or "Beginning Isle",
             CanFishNow = true
         }
     end
@@ -622,7 +736,12 @@ local function travelToQuestSpot(targetData)
         Position = targetData.Position
     }
     if targetData.TargetType == "Boss" then
-        teleportToIslandShore("Battlefield Isle")
+        local targetIsl = targetData.Destination or state.SelectedIsland or "Beginning Isle"
+        currentFishingLocation = {
+            Type = "Island",
+            Name = targetIsl
+        }
+        teleportToIslandShore(targetIsl)
     elseif targetData.TargetType == "Default" then
         local pos = targetData.Position or CUSTOM_FARM_POS
         if pos then
@@ -1708,6 +1827,7 @@ TabQuest:Toggle({
         if not v then
             ticketQuestWantsFishing = false
             isInteractingNPC = false
+            currentFishingLocation = { Type = "Island", Name = state.SelectedIsland or "Beginning Isle" }
             setTicketStatus("🔴 Đã tắt Auto Ticket Quest.")
         end
     end
@@ -1722,6 +1842,7 @@ TabQuest:Toggle({
         save()
         if not v then
             dailyQuestWantsFishing = false
+            currentFishingLocation = { Type = "Island", Name = state.SelectedIsland or "Beginning Isle" }
             setDailyStatus("🔴 Đã tắt Auto Daily Quest.")
         end
     end
@@ -1735,6 +1856,7 @@ TabQuest:Toggle({
         save()
         if not v then
             essenceOrbWantsFishing = false
+            currentFishingLocation = { Type = "Island", Name = state.SelectedIsland or "Beginning Isle" }
             setEssenceStatus("🔴 Đã tắt Auto Essence Orb.")
         end
     end
@@ -1826,6 +1948,7 @@ local function teleportToNPC(npcName)
         end
 
         if targetPos then
+            unequipRod()
             hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 4), targetPos)
             task.wait(0.3)
             return true
@@ -2395,6 +2518,24 @@ local function getPlayerFishingHealthPercent(fishObj, cachedHealthVal, cachedMax
     return 100
 end
 
+-- Kiểm tra trạng thái không thể hồi máu (Poisoned) theo đúng mã nguồn game Fishing Master
+local function isPlayerHealBlocked(currentChar)
+    local char = currentChar or getCharacter()
+    if char and char:GetAttribute("Poisoned") == true then
+        return true
+    end
+
+    local mGui = getMainGui()
+    local fGui = mGui and mGui:FindFirstChild("Fishing")
+    local hpPlayer = fGui and fGui:FindFirstChild("HPPlayer")
+    local debuff = hpPlayer and hpPlayer:FindFirstChild("Debuff")
+    if debuff and debuff:FindFirstChild("Poisoned") then
+        return true
+    end
+
+    return false
+end
+
 -- 4.1. VÒNG LẶP AUTO SKILL & HỒI MÁU ĐỘC LẬP (Hoạt động cho cả Câu Cá thường, Boss Thời Tiết & Boss Enzo, Long Diaohai)
 task.spawn(function()
     local events = ReplicatedStorage:WaitForChild("Events")
@@ -2406,16 +2547,19 @@ task.spawn(function()
             local currentFish = findMyFish()
             local char = getCharacter()
 
-            -- 1. Cơ chế TỰ ĐỘNG HỒI MÁU KHẨN CẤP
+            -- 1. Cơ chế TỰ ĐỘNG HỒI MÁU KHẨN CẤP (khi máu dưới ngưỡng cài đặt)
             if state.AutoHealSkill and state.HealSkillKey and state.HealSkillKey ~= "" then
                 local currentHPPercent = getPlayerFishingHealthPercent(currentFish)
                 local threshold = tonumber(state.HealHPThreshold) or 40
+                local shouldHeal = (currentHPPercent <= threshold)
 
-                if currentHPPercent <= threshold then
-                    -- Máu đang dưới ngưỡng! Kích hoạt ngay chiêu hồi máu nếu đã sẵn sàng
-                    if isSkillReady(state.HealSkillKey, char) then
-                        skillRem:FireServer(state.HealSkillKey)
-                        task.wait(0.2)
+                if shouldHeal then
+                    -- Nếu đang dính trạng thái không thể hồi máu (Poisoned) -> Chờ hết Poisoned mới dùng
+                    if not isPlayerHealBlocked(char) then
+                        if isSkillReady(state.HealSkillKey, char) then
+                            skillRem:FireServer(state.HealSkillKey)
+                            task.wait(0.2)
+                        end
                     end
                 end
             end
@@ -2517,15 +2661,24 @@ task.spawn(function()
                 end
 
                 if not castSuccess then
-                    -- Ném cần thất bại (kẹt góc, lệch bờ nước, hoặc server từ chối)
-                    -- Đổi góc/điểm đứng ngay lập tức, không lãng phí 10s chờ đợi
+                    -- Ném cần thất bại (kẹt góc, lệch bờ nước, hố cạn hoặc server từ chối)
+                    -- Luôn cất cần trước khi đổi vị trí đứng
                     task.wait(0.2)
-                    if not (state.AutoWeatherBoss and weatherBossActive) then
-                        if state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
-                            relocateCurrentFishingSpot()
-                        end
+                    unequipRod()
+                    task.wait(0.2)
+
+                    -- CHỈ TỰ ĐỘNG ĐỔI BỜ KHI ĐANG BẬT SĂN BOSS THỜI TIẾT HOẶC AUTO QUEST
+                    if state.AutoWeatherBoss and weatherBossActive then
+                        local islName = currentFishingLocation.Name or "đảo boss"
+                        setWeatherBossStatus("⚠️ Ném cần không tới nước/kẹt vị trí -> Đổi bờ câu khác trên " .. tostring(islName) .. "...")
+                        relocateCurrentFishingSpot()
+                    elseif state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
+                        relocateCurrentFishingSpot()
                     end
-                    task.wait(0.5)
+                    -- Khi CHỈ BẬT AutoFishing thường: Giữ nguyên vị trí tại chỗ, tuyệt đối không tự ý teleport!
+                    task.wait(0.6)
+                    equipRod()
+                    task.wait(0.4)
                 else
                     -- Ném cần THÀNH CÔNG -> Chờ cá cắn câu
                     local targetFish = nil
@@ -2635,15 +2788,6 @@ task.spawn(function()
                                 currentHookedFishName = nil
                             end
                         end
-                    -- Quá 10s có ném cần nhưng không có cá cắn -> Đổi điểm đứng khác (chỉ khi làm Quest)
-                    elseif isFishingAllowed() and not targetFish then
-                        task.wait(0.3)
-                        if not (state.AutoWeatherBoss and weatherBossActive) then
-                            if state.AutoTicketQuest or state.AutoDailyQuest or state.AutoEssenceOrb then
-                                relocateCurrentFishingSpot()
-                            end
-                        end
-                        task.wait(0.8)
                     end
                 end
             end
@@ -2672,11 +2816,12 @@ task.spawn(function()
                 setDailyStatus(dStatus.Summary)
 
                 if (dStatus.NeedFishing or dStatus.NeedBoss) and not state.AutoTicketQuest and not state.AutoEssenceOrb then
-                    if CUSTOM_FARM_POS and not dStatus.NeedBoss then
+                    if CUSTOM_FARM_POS then
                         travelToFarmSpot()
                     else
-                        currentFishingLocation = { Type = "Island", Name = "Battlefield Isle" }
-                        teleportToIslandShore("Battlefield Isle")
+                        local farmIsland = state.SelectedIsland or "Beginning Isle"
+                        currentFishingLocation = { Type = "Island", Name = farmIsland }
+                        teleportToIslandShore(farmIsland)
                     end
                     dailyQuestWantsFishing = true
                 elseif dStatus.AllCompleted and not state.AutoTicketQuest and not state.AutoEssenceOrb then
